@@ -19,7 +19,8 @@
 
 import os
 import util
-from lbrycrd import *
+from lbryum.networks import blockchain_params
+from lbryum import lbrycrd
 
 NULL_HASH = '0000000000000000000000000000000000000000000000000000000000000000'
 HEADER_SIZE = 112
@@ -32,8 +33,10 @@ class ChainValidationError(Exception):
     pass
 
 
-class _Blockchain(util.PrintError):
-    '''Manages blockchain headers and their verification'''
+class LbryCrd(util.PrintError):
+    """Manages blockchain headers and their verification"""
+
+    BLOCKCHAIN_NAME = "lbrycrd_main"
 
     def __init__(self, config, network):
         self.config = config
@@ -42,6 +45,22 @@ class _Blockchain(util.PrintError):
         self.local_height = 0
         self.set_local_height()
         self.retrieving_headers = False
+
+        self._MAX_TARGET = blockchain_params[self.BLOCKCHAIN_NAME]['max_target']
+        self._N_TARGET_TIMESPAN = blockchain_params[self.BLOCKCHAIN_NAME]['target_timespan']
+        self._GENESIS_BITS = blockchain_params[self.BLOCKCHAIN_NAME]['genesis_bits']
+
+    @property
+    def MAX_TARGET(self):
+        return self._MAX_TARGET
+
+    @property
+    def N_TARGET_TIMESPAN(self):
+        return self._N_TARGET_TIMESPAN
+
+    @property
+    def GENESIS_BITS(self):
+        return self._GENESIS_BITS
 
     def height(self):
         return self.local_height
@@ -93,13 +112,13 @@ class _Blockchain(util.PrintError):
             return NULL_HASH
 
     def serialize_header(self, res):
-        s = int_to_hex(res.get('version'), 4) \
-            + rev_hex(self.get_block_hash(res)) \
-            + rev_hex(res.get('merkle_root')) \
-            + rev_hex(res.get('claim_trie_root')) \
-            + int_to_hex(int(res.get('timestamp')), 4) \
-            + int_to_hex(int(res.get('bits')), 4) \
-            + int_to_hex(int(res.get('nonce')), 4)
+        s = lbrycrd.int_to_hex(res.get('version'), 4) \
+            + lbrycrd.rev_hex(self.get_block_hash(res)) \
+            + lbrycrd.rev_hex(res.get('merkle_root')) \
+            + lbrycrd.rev_hex(res.get('claim_trie_root')) \
+            + lbrycrd.int_to_hex(int(res.get('timestamp')), 4) \
+            + lbrycrd.int_to_hex(int(res.get('bits')), 4) \
+            + lbrycrd.int_to_hex(int(res.get('nonce')), 4)
 
         return s
 
@@ -107,9 +126,9 @@ class _Blockchain(util.PrintError):
         hex_to_int = lambda s: int('0x' + s[::-1].encode('hex'), 16)
         h = {}
         h['version'] = hex_to_int(s[0:4])
-        h['prev_block_hash'] = hash_encode(s[4:36])
-        h['merkle_root'] = hash_encode(s[36:68])
-        h['claim_trie_root'] = hash_encode(s[68:100])
+        h['prev_block_hash'] = lbrycrd.hash_encode(s[4:36])
+        h['merkle_root'] = lbrycrd.hash_encode(s[36:68])
+        h['claim_trie_root'] = lbrycrd.hash_encode(s[68:100])
         h['timestamp'] = hex_to_int(s[100:104])
         h['bits'] = hex_to_int(s[104:108])
         h['nonce'] = hex_to_int(s[108:112])
@@ -118,12 +137,12 @@ class _Blockchain(util.PrintError):
     def hash_header(self, header):
         if header is None:
             return '0' * 64
-        return hash_encode(Hash(self.serialize_header(header).decode('hex')))
+        return lbrycrd.hash_encode(lbrycrd.Hash(self.serialize_header(header).decode('hex')))
 
     def pow_hash_header(self, header):
         if header is None:
             return '0' * 64
-        return hash_encode(PoWHash(self.serialize_header(header).decode('hex')))
+        return lbrycrd.hash_encode(lbrycrd.PoWHash(self.serialize_header(header).decode('hex')))
 
     def path(self):
         return os.path.join(self.config.path, 'blockchain_headers')
@@ -268,13 +287,6 @@ class _Blockchain(util.PrintError):
             self.print_error('verify_chunk failed', str(e))
             return idx - 1
 
-# these values follow the parameters in lbrycrd/src/chainparams.cpp
-class LbryCrd(_Blockchain):
-    MAX_TARGET = 0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    # target is 2min 30 seconds
-    N_TARGET_TIMESPAN = 150
-    GENESIS_BITS = 0x1f00ffff
-
     def check_bits(self, bits):
         bitsN = (bits >> 24) & 0xff
         assert 0x03 <= bitsN <= 0x1f, \
@@ -284,41 +296,37 @@ class LbryCrd(_Blockchain):
             "Second part of bits should be in [0x8000, 0x7fffff] but it was {}".format(bitsBase)
 
 
-class LbryCrdTest(_Blockchain):
-    MAX_TARGET = 0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    N_TARGET_TIMESPAN = 150
-    GENESIS_BITS = 0x1f00ffff
-
-    def check_bits(self, bits):
-        bitsN = (bits >> 24) & 0xff
-        assert 0x03 <= bitsN <= 0x1f, \
-            "First part of bits should be in [0x03, 0x1d], but it was {}".format(hex(bitsN))
-        bitsBase = bits & 0xffffff
-        assert 0x8000 <= bitsBase <= 0x7fffff, \
-            "Second part of bits should be in [0x8000, 0x7fffff] but it was {}".format(bitsBase)
+class LbryCrdTest(LbryCrd):
+    BLOCKCHAIN_NAME = "lbrycrd_testnet"
 
 
-class LbryCrdReg(_Blockchain):
-    MAX_TARGET = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    # regtest has target timespan of 1, so that blocks are quickly generated
-    N_TARGET_TIMESPAN = 1
-    GENESIS_BITS = 0x207fffff
+class LbryCrdReg(LbryCrd):
+    BLOCKCHAIN_NAME = "lbrycrd_regtest"
 
     def check_bits(self, bits):
         pass
 
 
 def get_blockchain(config, network):
-    chain = config.get('chain', 'lbrycrd')
-    if chain == 'lbrycrd':
+    chain = config.get('chain', 'lbrycrd_main')
+
+    # set the script and pubkey address prefixes depending on which chain is being used
+    script_address = blockchain_params[chain]['script_address']
+    script_address_prefix = blockchain_params[chain]['script_address_prefix']
+    pubkey_address = blockchain_params[chain]['pubkey_address']
+    pubkey_address_prefix = blockchain_params[chain]['pubkey_address_prefix']
+
+    lbrycrd.SCRIPT_ADDRESS = (script_address, script_address_prefix)
+    lbrycrd.PUBKEY_ADDRESS = (pubkey_address, pubkey_address_prefix)
+
+    if chain == 'lbrycrd_main':
         return LbryCrd(config, network)
-    elif chain == 'lbrycrdtest':
+    elif chain == 'lbrycrd_test':
         return LbryCrdTest(config, network)
-    elif chain == 'lbrycrdreg':
+    elif chain == 'lbrycrd_regtest':
         return LbryCrdReg(config, network)
     else:
         raise ValueError('Unknown chain: {}'.format(chain))
-
 
 
 # see src/arith_uint256.cpp in lbrycrd

@@ -44,6 +44,7 @@ labeled as 2.7.1. Subsequent releases will follow
   * fixed update command
   * fix bugs related to get_name_claims() returning supports
   * fix claim id double-encoding bug in `update`
+  * fix switching between lbrycrd_main, lbrycrd_regtest, and lbrycrd_testnet in config
 
 ## [2.7.12] - 2017-03-10
 ### Changed

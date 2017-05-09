@@ -25,8 +25,7 @@ DEFAULT_CONFIG = {
         'lbryum4.lbry.io': {'t': '50001'},
         'lbryum5.lbry.io': {'t': '50001'},
     },
-    'chain': 'lbrycrd'
-
+    'chain': 'lbrycrd_main'
 }
 
 
