@@ -1693,7 +1693,7 @@ class Commands:
             "tx": str(tx),
             "fee": str(Decimal(tx.get_fee())/COIN),
             "amount": str(Decimal(amount)/COIN),
-            "claim_id": lbrycrd.encode_claim_id_hex(claim_id)
+            "claim_id": claim_id
         }
 
     @command('wpn')
