@@ -43,6 +43,7 @@ labeled as 2.7.1. Subsequent releases will follow
   * fix bug verifying the claim value for a new certificate claim
   * fixed update command
   * fix bugs related to get_name_claims() returning supports
+  * fix claim id double-encoding bug in `update`
 
 ## [2.7.12] - 2017-03-10
 ### Changed
