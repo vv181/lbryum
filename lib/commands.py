@@ -1312,9 +1312,11 @@ class Commands:
         encoded_claim = claim.serialized.encode('hex')
         result = self.claim(name, encoded_claim, amount, broadcast=broadcast,
                             claim_addr=claim_addr, tx_fee=tx_fee, change_addr=change_addr)
-        self.wallet.save_certificate(result['claim_id'], secp256k1_private_key)
-        self.wallet.set_default_certificate(result['claim_id'],
-                                            overwrite_existing=set_default_certificate)
+
+        if result['success']:
+            self.wallet.save_certificate(result['claim_id'], secp256k1_private_key)
+            self.wallet.set_default_certificate(result['claim_id'],
+                                                overwrite_existing=set_default_certificate)
         return result
 
     @command('wpn')
