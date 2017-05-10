@@ -48,6 +48,13 @@ TYPE_UPDATE  = 32
 EXPIRATION_BLOCKS = 262974
 RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS = 1
 
+# address prefixes are set when the blockchain is initialized by blockchain.get_blockchain
+# the default values are for lbrycrd_main
+global PUBKEY_ADDRESS
+global SCRIPT_ADDRESS
+PUBKEY_ADDRESS = (0, 85)
+SCRIPT_ADDRESS = (5, 122)
+
 # AES encryption
 EncodeAES = lambda secret, s: base64.b64encode(aes.encryptData(secret,s))
 DecodeAES = lambda secret, e: aes.decryptData(secret, base64.b64decode(e))
@@ -254,11 +261,6 @@ def hash_160(public_key):
 def public_key_to_bc_address(public_key):
     h160 = hash_160(public_key)
     return hash_160_to_bc_address(h160)
-
-
-#lbrycrd/src/chainparams.cpp line 176
-PUBKEY_ADDRESS = (0, 85)
-SCRIPT_ADDRESS = (5, 122)
 
 
 def hash_160_to_bc_address(h160, addrtype=0):

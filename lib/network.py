@@ -2,7 +2,7 @@ import time
 import Queue
 import os
 import errno
-import sys
+import re
 import random
 import select
 import traceback
@@ -15,7 +15,7 @@ import json
 import logging
 
 import util
-from lbrycrd import *
+from lbryum import lbrycrd
 from interface import Connection, Interface
 from blockchain import get_blockchain, BLOCKS_PER_CHUNK
 from version import LBRYUM_VERSION, PROTOCOL_VERSION
@@ -125,6 +125,7 @@ def deserialize_server(server_str):
 
 def serialize_server(host, port, protocol):
     return str(':'.join([host, port, protocol]))
+
 
 class Network(util.DaemonThread):
     """The Network class manages a set of connections to remote lbryum
@@ -463,12 +464,12 @@ class Network(util.DaemonThread):
                 self.notify('banner')
         elif method == 'blockchain.estimatefee':
             if error is None:
-                self.fee = int(result * COIN)
+                self.fee = int(result * lbrycrd.COIN)
                 log.info("recommended fee %s", self.fee)
                 self.notify('fee')
         elif method == 'blockchain.relayfee':
             if error is None:
-                self.relay_fee = int(result * COIN)
+                self.relay_fee = int(result * lbrycrd.COIN)
                 log.info("relayfee %s", self.relay_fee)
         elif method == 'blockchain.block.get_chunk':
             self.on_get_chunk(interface, response)
