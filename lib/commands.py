@@ -772,6 +772,10 @@ class Commands:
                 claim_result['channel_name'] = channel_name
                 if validated:
                     claim_result['signature_is_valid'] = True
+
+        if 'height' in claim_result and claim_result['height'] is None:
+            claim_result['height'] = -1
+
         return claim_result
 
     @staticmethod
