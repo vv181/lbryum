@@ -538,6 +538,25 @@ class Commands:
         tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned)
         return self.network.synchronous_get(('blockchain.transaction.broadcast', [str(tx)]))
 
+    @command('wpn')
+    def sendclaimtoaddress(self, claim_id, destination, amount, tx_fee=None, change_addr=None, broadcast=True):
+        claims = self.getnameclaims(raw=True, include_supports=False)
+        claim = None
+        for c in claims:
+            if c['claim_id'] == claim_id:
+                claim = c
+                break
+        if not claim:
+            return {'error': 'claim not found in wallet'}
+        txid = claim['txid']
+        nout = claim['nout']
+        claim_name = claim['name']
+        claim_val = claim['value']
+        return self.update(claim_name, claim_val, amount=amount, certificate_id=None,
+                           claim_id=claim_id, txid=txid, nout=nout, broadcast=broadcast,
+                           claim_addr=destination, tx_fee=tx_fee, change_addr=change_addr,
+                           raw=False, skip_validate_schema=True)
+
     @command('wp')
     def paytomany(self, outputs, tx_fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False):
         """Create a multi-output transaction. """

@@ -25,6 +25,7 @@ labeled as 2.7.1. Subsequent releases will follow
     - `updateclaimsignature`
     - `updatecertificate`
     - `cansignwithcertificate`
+  * add `sendclaimtoaddress` command
       
 ### Changed
   * include claim address in return from getvalueforname
