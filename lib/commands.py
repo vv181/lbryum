@@ -829,10 +829,16 @@ class Commands:
                     'claim_id': claim_id,
                     'txid': txid,
                     'nout': n,
-                    'amount': str(Decimal(amount)/COIN),
+                    'amount': float(amount)/float(COIN),
                     'height': height,
                     'depth': depth,
                     'address': claim_address,
+                    # TODO: below are legacy fields that should be removed
+                    # kept here to not break lbrynet
+                    'claim_sequence':0,
+                    'effective_amount':0,
+                    'supports':[],
+
                 }
             return r
 
