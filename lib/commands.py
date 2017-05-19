@@ -540,14 +540,14 @@ class Commands:
 
     @command('wpn')
     def sendclaimtoaddress(self, claim_id, destination, amount, tx_fee=None, change_addr=None, broadcast=True):
-        claims = self.getnameclaims(raw=True, include_supports=False)
-        claim = None
-        for c in claims:
-            if c['claim_id'] == claim_id:
-                claim = c
-                break
-        if not claim:
-            return {'error': 'claim not found in wallet'}
+        claims = self.getnameclaims(raw=True, include_supports=False, claim_id=claim_id)
+        if len(claims) > 1:
+            return {"success": False ,'reason':'more than one claim that matches'}
+        elif len(claims) == 0:
+            return {"success": False, 'reason':'claim not found'}
+        else:
+            claim = claims[0]
+
         txid = claim['txid']
         nout = claim['nout']
         claim_name = claim['name']
