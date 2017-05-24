@@ -553,14 +553,14 @@ class Commands:
 
     @command('wpn')
     def sendclaimtoaddress(self, claim_id, destination, amount, tx_fee=None, change_addr=None, broadcast=True):
-        claims = self.getnameclaims(raw=True, include_supports=False)
-        claim = None
-        for c in claims:
-            if c['claim_id'] == claim_id:
-                claim = c
-                break
-        if not claim:
-            return {'error': 'claim not found in wallet'}
+        claims = self.getnameclaims(raw=True, include_supports=False, claim_id=claim_id)
+        if len(claims) > 1:
+            return {"success": False ,'reason':'more than one claim that matches'}
+        elif len(claims) == 0:
+            return {"success": False, 'reason':'claim not found'}
+        else:
+            claim = claims[0]
+
         txid = claim['txid']
         nout = claim['nout']
         claim_name = claim['name']
@@ -1165,9 +1165,10 @@ class Commands:
         return self.parse_and_validate_claim_result(claims, raw)
 
     @command('w')
-    def getnameclaims(self, raw=False, include_abandoned=False, include_supports=True):
+    def getnameclaims(self, raw=False, include_abandoned=False, include_supports=True,
+                        claim_id=None, txid=None, nout=None):
         """
-        Get  my name claims
+        Get  my name claims from wallet
         """
 
         result = self.wallet.get_name_claims(include_abandoned=include_abandoned,
@@ -1176,6 +1177,12 @@ class Commands:
         name_claims = []
         for claim in claims:
             parsed = self.parse_and_validate_claim_result(claim, raw)
+            if claim_id is not None and parsed['claim_id'] != claim_id:
+                continue
+            if txid is not None and nout is not None:
+
+                if parsed['txid'] != txid or parsed['nout'] != nout:
+                    continue
             name_claims.append(parsed)
 
         return name_claims
@@ -1735,15 +1742,21 @@ class Commands:
         }
 
     @command('wpn')
-    def abandon(self, claim_id, broadcast=True, return_addr=None, tx_fee=None):
+    def abandon(self, claim_id=None, txid=None, nout=None, broadcast=True, return_addr=None, tx_fee=None):
         """
         Abandon a name claim
-        """
 
-        # create a single new address to abandon into if return_addr was not specified
-        claim = self.getclaimbyid(claim_id)
-        if not claim:
-            return {'success': False, 'reason': 'claim not found'}
+        Either specify the claim with a claim_id or with txid and nout
+        """
+        claims = self.getnameclaims(raw=True, include_abandoned=False, include_supports=True,
+                                    claim_id=claim_id, txid=txid, nout=nout)
+        if len(claims) > 1:
+            return {"success": False ,'reason':'more than one claim that matches'}
+        elif len(claims) == 0:
+            return {"success": False, 'reason':'claim not found'}
+        else:
+            claim = claims[0]
+
         txid, nout = claim['txid'], claim['nout']
         if return_addr is None:
             return_addr = self.wallet.create_new_address()
