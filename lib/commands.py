@@ -538,6 +538,19 @@ class Commands:
         tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned)
         return self.network.synchronous_get(('blockchain.transaction.broadcast', [str(tx)]))
 
+    @command('w')
+    def waitfortxinwallet(self, txid, timeout=30):
+        """
+        wait for tx with txid to appear in wallet for timeout seconds
+        return True, if txid appears within timeout, return False otherwise
+        """
+        start_time = time.time()
+        while start_time - time.time() < timeout:
+            if txid in self.wallet.transactions:
+                return True
+            time.sleep(0.2)
+        return False
+
     @command('wpn')
     def sendclaimtoaddress(self, claim_id, destination, amount, tx_fee=None, change_addr=None, broadcast=True):
         claims = self.getnameclaims(raw=True, include_supports=False)
@@ -1825,7 +1838,8 @@ command_options = {
     'include_supports': (None,"--include_supports", "include supports"),
     'skip_update_check': (None, "--skip_update_check", "do not check for an existing unspent claim before making a new one"),
     'revoke': (None, "--revoke", "if true, create a new signing key and revoke the old one"),
-    'val': (None, '--value', 'claim value')
+    'val': (None, '--value', 'claim value'),
+    'timeout':(None,'--timeout','timeout')
 }
 
 
