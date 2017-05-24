@@ -22,8 +22,8 @@ def set_config(c):
 
 DEFAULT_CONFIG = {
     'default_servers': {
-        'lbryum4.lbry.io': {'t': '50001'},
-        'lbryum5.lbry.io': {'t': '50001'},
+        'lbryum6.lbry.io': {'t': '50001'},
+        'lbryum7.lbry.io': {'t': '50001'},
     },
     'chain': 'lbrycrd_main'
 }
