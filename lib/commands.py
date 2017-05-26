@@ -1558,7 +1558,7 @@ class Commands:
     @command('wpn')
     def updateclaimsignature(self, name, amount=None, claim_id=None, certificate_id=None):
         """
-        Update name claim signature
+        Update an unsigned claim with a signature
         """
 
         claim_value = None
@@ -1577,13 +1577,16 @@ class Commands:
         claim = smart_decode(claim_value)
         if certificate_id is None:
             certificate_id = claim.certificate_id
+            certificate = self.getclaimbyid(certificate_id)
+            if not certificate:
+                raise Exception('Certificate claim {} not found'.format(decoded.certificate_id))
         if not self.cansignwithcertificate(certificate_id):
             return {
                 'error': ('can update claim for lbry://{}#{}, but the signing key is '
                           'missing for certificate {}').format(name, claim_id, certificate_id)
             }
         validated, channel_name = self.validate_claim_signature_and_get_channel_name(
-            claim, claim_address)
+            claim, certificate, claim_address)
         if validated:
             return {
                 'error': 'lbry://{}#{} has a valid signature already'.format(name, claim_id)
