@@ -795,7 +795,9 @@ class Commands:
             claim_result['has_signature'] = False
             if decoded.has_signature:
                 if certificate is None:
-                    raise Exception("Cannot validate signed claim without a certificate")
+                    certificate = self.getclaimbyid(decoded.certificate_id)
+                    if not certificate:
+                        raise Exception('Certificate claim {} not found'.format(decoded.certificate_id))
                 claim_result['has_signature'] = True
                 claim_result['signature_is_valid'] = False
                 validated, channel_name = self.validate_claim_signature_and_get_channel_name(
@@ -924,7 +926,7 @@ class Commands:
             depth = self.network.get_server_height() - height
         result = Commands._verify_proof(name, block_header['claim_trie_root'], response,
                                         height, depth)
-        return self.parse_and_validate_claim_result(result, raw)
+        return self.parse_and_validate_claim_result(result, raw=raw)
 
     @command('n')
     def getclaimbynameinchannel(self, uri, name, raw=False):
@@ -1052,13 +1054,13 @@ class Commands:
                                                                 certificate_response,
                                                                 height, depth)
                     result['certificate'] = self.parse_and_validate_claim_result(certificate_result,
-                                                                                 raw)
+                                                                                 raw=raw)
             elif certificate_resolution_type == "claim_id":
                 result['certificate'] = self.parse_and_validate_claim_result(certificate_response,
-                                                                             raw)
+                                                                             raw=raw)
             elif certificate_resolution_type == "sequence":
                 result['certificate'] = self.parse_and_validate_claim_result(certificate_response,
-                                                                             raw)
+                                                                             raw=raw)
             else:
                 print_stderr("unknown response type: %s" % certificate_resolution_type)
 
@@ -1228,7 +1230,7 @@ class Commands:
 
         out = self.network.synchronous_get(('blockchain.claimtrie.getclaimsintx', [txid]))
         result = format_amount_value(format_lbrycrd_keys(out, raw))
-        return self.parse_and_validate_claim_result(result, raw)
+        return self.parse_and_validate_claim_result(result, raw=raw)
 
     @command('n')
     def getclaimbyoutpoint(self, txid, nout, raw=False):
@@ -1240,7 +1242,7 @@ class Commands:
         claims = format_amount_value(format_lbrycrd_keys(out, raw))
         for claim in claims:
             if claim['nout'] == nout:
-                return self.parse_and_validate_claim_result(claim, raw)
+                return self.parse_and_validate_claim_result(claim, raw=raw)
 
     @command('n')
     def getclaimsforname(self, name, raw=False):
@@ -1253,7 +1255,7 @@ class Commands:
         claims = format_amount_value(result['claims'])
         claims_for_return = []
         for claim in claims:
-            claims_for_return.append(self.parse_and_validate_claim_result(claim, raw))
+            claims_for_return.append(self.parse_and_validate_claim_result(claim, raw=raw))
         result['claims'] = claims_for_return
         return result
 
@@ -1266,7 +1268,7 @@ class Commands:
         result = self.network.synchronous_get(('blockchain.claimtrie.getclaimssignedbyid',
                                                [claim_id]))
         claims = format_amount_value(result)
-        return [self.parse_and_validate_claim_result(claim, raw) for claim in claims]
+        return [self.parse_and_validate_claim_result(claim, raw=raw) for claim in claims]
 
     @command('n')
     def getclaimsinchannel(self, uri, raw=False):
@@ -1288,7 +1290,7 @@ class Commands:
                                                  [parsed.name]))
         if claims:
             result = format_amount_value(claims)
-            return [self.parse_and_validate_claim_result(claim, raw) for claim in result]
+            return [self.parse_and_validate_claim_result(claim, raw=raw) for claim in result]
         return []
 
     @command('n')
@@ -1342,7 +1344,7 @@ class Commands:
 
         result = self.network.synchronous_get(('blockchain.claimtrie.getclaimbyid', [claim_id]))
         claims = format_amount_value(result)
-        return self.parse_and_validate_claim_result(claims, raw)
+        return self.parse_and_validate_claim_result(claims, raw=raw)
 
     @command('n')
     def getnthclaimforname(self, name, n, raw=False):
@@ -1353,7 +1355,7 @@ class Commands:
         result = self.network.synchronous_get(('blockchain.claimtrie.getnthclaimforname',
                                                [name, n]))
         claims = format_amount_value(result)
-        return self.parse_and_validate_claim_result(claims, raw)
+        return self.parse_and_validate_claim_result(claims, raw=raw)
 
     @command('w')
     def getnameclaims(self, raw=False, include_abandoned=False, include_supports=True,
@@ -1367,7 +1369,7 @@ class Commands:
         claims = format_amount_value(result)
         name_claims = []
         for claim in claims:
-            parsed = self.parse_and_validate_claim_result(claim, raw)
+            parsed = self.parse_and_validate_claim_result(claim, raw=raw)
             if claim_id is not None and parsed['claim_id'] != claim_id:
                 continue
             if txid is not None and nout is not None:
@@ -1391,7 +1393,7 @@ class Commands:
             try:
                 decoded = smart_decode(claim['value'])
                 if decoded.is_certificate:
-                    cert_result = self.parse_and_validate_claim_result(claim, raw)
+                    cert_result = self.parse_and_validate_claim_result(claim, raw=raw)
                     if self.cansignwithcertificate(cert_result['claim_id']):
                         cert_result['can_sign'] = True
                     else:
