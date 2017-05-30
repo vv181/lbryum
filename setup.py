@@ -26,7 +26,7 @@ requires = [
     'jsonrpclib',
     'six>=1.9.0',
     'appdirs==1.4.3',
-    'lbryschema==0.0.4'
+    'lbryschema==0.0.6'
 ]
 
 
