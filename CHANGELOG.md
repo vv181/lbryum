@@ -12,7 +12,7 @@ labeled as 2.7.1. Subsequent releases will follow
   *
       
 ### Changed
-  *
+  * Change 'nothing to resolve' error to 'claim not found' used in other places
   *
   
 ### Fixed
