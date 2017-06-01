@@ -993,7 +993,7 @@ class Commands:
             if 'error' in result[k]:
                 return result[k]
         if not result.get('claim', False) and not result.get('certificate', False) and not result.get('claims_in_channel', False) and not result.get('error', False):
-            return {'error': 'nothing to resolve'}
+            return {'error': 'claim not found'}
         return result
 
     @command('n')
