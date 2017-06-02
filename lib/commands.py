@@ -795,6 +795,7 @@ class Commands:
             claim_result['has_signature'] = False
             if decoded.has_signature:
                 if certificate is None:
+                    print_msg("fetching certificate to check claim signature")
                     certificate = self.getclaimbyid(decoded.certificate_id)
                     if not certificate:
                         raise Exception('Certificate claim {} not found'.format(decoded.certificate_id))
