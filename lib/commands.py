@@ -55,6 +55,7 @@ log = logging.getLogger(__name__)
 
 known_commands = {}
 ADDRESS_LENGTH = 25
+MAX_PAGE_SIZE = 500
 
 # Format output from lbrycrd to have consistently
 # named ditionary keys
@@ -954,8 +955,35 @@ class Commands:
             return {'error': 'no default certificate configured'}
         return self.getclaimbyid(certificate_id)
 
-    def iter_channel_pages(self, channel_claim_infos, certificate, start_position, page_size=10,
-                           query_size=10):
+    @staticmethod
+    def prepare_claim_queries(start_position, query_size, channel_claim_infos):
+        queries = [tuple()]
+        names = {}
+        # a table of index counts for the sorted claim ids, including ignored claims
+        absolute_position_index = {}
+
+        block_sorted_infos = sorted(channel_claim_infos.iteritems(), key=lambda x: int(x[1][1]))
+        per_block_infos = {}
+        for claim_id, (name, height) in block_sorted_infos:
+            claims = per_block_infos.get(height, [])
+            claims.append((claim_id, name))
+            per_block_infos[height] = sorted(claims, key=lambda x: int(x[0], 16))
+
+        abs_position = 0
+
+        for height in sorted(per_block_infos.keys()):
+            for claim_id, name in per_block_infos[height]:
+                names[claim_id] = name
+                absolute_position_index[claim_id] = abs_position
+                if abs_position >= start_position:
+                    if len(queries[-1]) >= query_size:
+                        queries.append(tuple())
+                    queries[-1] += (claim_id,)
+                abs_position += 1
+        return queries, names, absolute_position_index
+
+    def iter_channel_claims_pages(self, queries, claim_positions, claim_names, certificate,
+                                  page_size=10):
         # lbryum server returns a dict of {claim_id: (name, claim_height)}
         # first, sort the claims by block height (and by claim id int value within a block).
 
@@ -969,51 +997,21 @@ class Commands:
         # processed them.
         # TODO: fix ^ in lbryschema
 
-        def prepare_queries():
-            queries = [tuple()]
-            names = {}
-            # a table of index counts for the sorted claim ids, including ignored claims
-            absolute_position_index = {}
-
-            block_sorted_infos = sorted(channel_claim_infos.iteritems(), key=lambda x: int(x[1][1]))
-            per_block_infos = {}
-            for claim_id, (name, height) in block_sorted_infos:
-                claims = per_block_infos.get(height, [])
-                claims.append((claim_id, name))
-                per_block_infos[height] = sorted(claims, key=lambda x: int(x[0], 16))
-
-            abs_position = 0
-
-            for height in sorted(per_block_infos.keys()):
-                for claim_id, name in per_block_infos[height]:
-                    names[claim_id] = name
-                    absolute_position_index[claim_id] = abs_position
-                    if abs_position >= start_position:
-                        if len(queries[-1]) >= query_size:
-                            queries.append(tuple())
-                        queries[-1] += (claim_id,)
-                    abs_position += 1
-            return queries, names, absolute_position_index
-
-        def iter_validate_channel_claims(queries, names, absolute_position_index):
+        def iter_validate_channel_claims():
             for claim_ids in queries:
                 batch_result = self.network.synchronous_get(("blockchain.claimtrie.getclaimsbyids", claim_ids))
                 for claim_id in claim_ids:
                     claim = batch_result[claim_id]
-                    if claim['name'] == names[claim_id]:
+                    if claim['name'] == claim_names[claim_id]:
                         formatted_claim = self.parse_and_validate_claim_result(claim, certificate)
-                        formatted_claim['absolute_channel_position'] = absolute_position_index[claim['claim_id']]
+                        formatted_claim['absolute_channel_position'] = claim_positions[claim['claim_id']]
                         yield format_amount_value(formatted_claim)
                     else:
                         print_msg("ignoring claim with name mismatch %s %s" % (claim['name'], claim['claim_id']))
 
-        query_list, name_dict, abs_pos_dict = prepare_queries()
-
-        yield len(abs_pos_dict)
-
         yielded_page = False
         results = []
-        for claim in iter_validate_channel_claims(query_list, name_dict, abs_pos_dict):
+        for claim in iter_validate_channel_claims():
             results.append(claim)
 
             # if there is a full page of results, yield it
@@ -1028,15 +1026,18 @@ class Commands:
     def get_channel_claims_page(self, channel_claim_infos, certificate, page, page_size=10):
         page = page or 0
         page_size = max(page_size, 1)
+        if page_size > MAX_PAGE_SIZE:
+            raise Exception("page size above maximum allowed")
         start_position = (page - 1) * page_size
-        page_generator = self.iter_channel_pages(channel_claim_infos, certificate, start_position,
-                                                 page_size=page_size)
-        upper_bound = next(page_generator)
+        queries, names, claim_positions = self.prepare_claim_queries(start_position, page_size,
+                                                                     channel_claim_infos)
+        page_generator = self.iter_channel_claims_pages(queries, claim_positions, names,
+                                                        certificate, page_size=page_size)
+        upper_bound = len(claim_positions)
         if not page:
             return None, upper_bound
         if start_position > upper_bound:
             raise IndexError("claim %i greater than max %i" % (start_position, upper_bound))
-
         return next(page_generator), upper_bound
 
     def _handle_resolve_uri_response(self, parsed_uri, block_header, raw, resolution, page=0,
@@ -1145,21 +1146,10 @@ class Commands:
         Resolve a LBRY URI
         """
 
-        try:
-            parsed_uri = parse_lbry_uri(uri)
-        except URIParseError as err:
-            return {'error': err.message}
-
-        page = int(page)
-        page_size = int(page_size)
-
-        height = self.network.get_local_height() - RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS + 1
-        block_header = self.network.blockchain.read_header(height)
-        block_hash = self.network.blockchain.hash_header(block_header)
-        resolution = self.network.synchronous_get(('blockchain.claimtrie.getvalueforuri',
-                                                   [block_hash, uri]))
-        return self._handle_resolve_uri_response(parsed_uri, block_header, raw, resolution,
-                                                 page=page, page_size=page_size)
+        result = self.getvaluesforuris(raw, page, page_size, uri)
+        if uri in result:
+            return result[uri]
+        return result
 
     @command('n')
     def getvaluesforuris(self, raw=False, page=0, page_size=10, *uris):
