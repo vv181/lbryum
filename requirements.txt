@@ -8,4 +8,4 @@ dnspython
 jsonrpclib
 six>=1.9.0
 appdirs==1.4.3
-git+https://github.com/lbryio/lbryschema.git@v0.0.6#egg=lbryschema
+git+https://github.com/lbryio/lbryschema.git@v0.0.7#egg=lbryschema
