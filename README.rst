@@ -6,7 +6,7 @@ LBRYum - lightweight lbrycrd client, a fork of the Electrum bitcoin client
 
 To install lbryum, run the following from this directory (use of a virtualenv is recommended)::
   
-  pip install git+https://github.com/lbryio/lbryschema.git
+  pip install -r requirements.txt
   pip install .
   
 
