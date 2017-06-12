@@ -18,7 +18,7 @@ labeled as 2.7.1. Subsequent releases will follow
   
 ### Fixed
   * Fixed abandon command
-  *
+  * Fix `updateclaimsignature`
 
 ## [2.7.22] - 2017-05-11
 ### Added
