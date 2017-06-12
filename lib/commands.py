@@ -1465,6 +1465,9 @@ class Commands:
 
         if change_addr is None:
             change_addr = self.wallet.create_new_address(for_change=True)
+        if not base_decode(change_addr, ADDRESS_LENGTH, 58):
+            return {'error': 'invalid change address'}
+
         amount = int(COIN*amount)
         if amount <= 0:
             return {'success': False,'reason': 'Amount must be greater than 0'}
