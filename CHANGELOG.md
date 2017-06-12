@@ -15,6 +15,7 @@ labeled as 2.7.1. Subsequent releases will follow
   * Change 'nothing to resolve' error to 'claim not found' used in other places
   * Move uri resolution logic to lbryum-server, validate response
   * Support batched uri resolution
+  * Store certificate claims when the private key is in the wallet
   
 ### Fixed
   * Fixed abandon command
