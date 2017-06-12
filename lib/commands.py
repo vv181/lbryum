@@ -796,8 +796,25 @@ class Commands:
             claim_result['has_signature'] = False
             if decoded.has_signature:
                 if certificate is None:
-                    print_msg("fetching certificate to check claim signature")
-                    certificate = self.getclaimbyid(decoded.certificate_id)
+                    # if this certificate is in the wallet, don't request the claim
+                    # if the key is in the wallet but the certificate is missing, fetch it
+                    if self.cansignwithcertificate(decoded.certificate_id):
+                        certificate = self.wallet.get_certificate_claim_value(decoded.certificate_id)
+                        if not certificate:
+                            print_msg("certificate claim is not in the wallet "
+                                      "but the signing key is (possibly from a dirty certificate "
+                                      "import), fetching the claim")
+                            certificate = self.getclaimbyid(decoded.certificate_id, raw=True)
+                            if not certificate:
+                                raise Exception(
+                                    'Certificate claim {} not found'.format(decoded.certificate_id))
+                            raw_cert = smart_decode(certificate['value'].decode('hex')).serialized
+                            self.wallet.save_certificate_value(decoded.certificate_id,
+                                                               raw_cert.encode('hex'),
+                                                               write=True)
+                    else:
+                        print_msg("fetching certificate to check claim signature")
+                        certificate = self.getclaimbyid(decoded.certificate_id)
                     if not certificate:
                         raise Exception('Certificate claim {} not found'.format(decoded.certificate_id))
                 claim_result['has_signature'] = True
@@ -1541,7 +1558,8 @@ class Commands:
                             claim_addr=claim_addr, tx_fee=tx_fee, change_addr=change_addr)
 
         if result['success']:
-            self.wallet.save_certificate(result['claim_id'], secp256k1_private_key)
+            self.wallet.save_certificate(result['claim_id'], secp256k1_private_key, write=True)
+            self.wallet.save_certificate_value(result['claim_id'], encoded_claim, write=True)
             self.wallet.set_default_certificate(result['claim_id'],
                                                 overwrite_existing=set_default_certificate)
         return result
@@ -1566,12 +1584,7 @@ class Commands:
         if claim_id is None or claim_value is None:
             return {'error': 'no claim to update'}
         claim = smart_decode(claim_value)
-        certificate = None
-        if certificate_id is None:
-            certificate_id = claim.certificate_id
-            certificate = self.getclaimbyid(certificate_id)
-            if not certificate:
-                raise Exception('Certificate claim {} not found'.format(claim.certificate_id))
+        certificate_id = certificate_id or claim.certificate_id
         if not self.cansignwithcertificate(certificate_id):
             return {
                 'error': ('can update claim for lbry://{}#{}, but the signing key is '
@@ -1603,7 +1616,10 @@ class Commands:
             secp256k1_private_key = get_signer(SECP256k1).generate().private_key.to_pem()
             certificate = ClaimDict.generate_certificate(secp256k1_private_key, curve=SECP256k1)
             result = self.update(name, certificate.serialized, amount=amount, raw=True)
-            self.wallet.save_certificate(result['claim_id'], secp256k1_private_key)
+            self.wallet.save_certificate(result['claim_id'], secp256k1_private_key, write=True)
+            self.wallet.save_certificate_value(result['claim_id'],
+                                               certificate.serialized.encode('hex'),
+                                               write=True)
         else:
             decoded = smart_decode(val)
             if not decoded.is_certificate:
