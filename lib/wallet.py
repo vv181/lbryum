@@ -1016,7 +1016,7 @@ class Abstract_Wallet(PrintError):
                 if not include_supports and txout[0] & TYPE_SUPPORT:
                     continue
                 if txout[0] & (TYPE_CLAIM | TYPE_UPDATE | TYPE_SUPPORT):
-                    local_height = self.network.get_local_height()
+                    local_height = self.get_local_height()
                     expired = tx_height + lbrycrd.EXPIRATION_BLOCKS <= local_height
                     output = {
                         'txid': prevout_hash,
