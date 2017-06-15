@@ -26,8 +26,7 @@ labeled as 2.7.1. Subsequent releases will follow
 ### Removed
   * Removed lbryum gui
   * Removed plugins
-  
-## [2.8.4] - 2017-06-15
+  * Remove unused files and directories
 
 ## [2.8.3] - 2017-06-15
 ### Added
