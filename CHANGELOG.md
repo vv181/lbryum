@@ -8,18 +8,38 @@ labeled as 2.7.1. Subsequent releases will follow
 
 ## [Unreleased]
 ### Added
-  * added waitfortxinwallet command
   *
-      
+  *
+
 ### Changed
-  * Change 'nothing to resolve' error to 'claim not found' used in other places
-  * Move uri resolution logic to lbryum-server, validate response
-  * Support batched uri resolution
-  
+  *
+  *
+
 ### Fixed
-  * Fixed abandon command
-  * Fix `updateclaimsignature`
-  * Fix changelog updates and release messages
+  *
+  *
+
+### Deprecated
+  *
+  *
+
+### Removed
+  *
+  *
+
+## [2.8.3] - 2017-06-15
+### Added
+ * added waitfortxinwallet command
+
+### Changed
+ * Change 'nothing to resolve' error to 'claim not found' used in other places
+ * Move uri resolution logic to lbryum-server, validate response
+ * Support batched uri resolution
+
+### Fixed
+ * Fixed abandon command
+ * Fix `updateclaimsignature`
+ * Fix changelog updates and release messages
 
 
 ## [2.7.22] - 2017-05-11
