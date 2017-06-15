@@ -1569,17 +1569,20 @@ class Commands:
         if claim_id is None or claim_value is None:
             return {'error': 'no claim to update'}
         claim = smart_decode(claim_value)
-        certificate = None
         if certificate_id is None:
             certificate_id = claim.certificate_id
             certificate = self.getclaimbyid(certificate_id)
             if not certificate:
                 raise Exception('Certificate claim {} not found'.format(claim.certificate_id))
-        if not self.cansignwithcertificate(certificate_id):
+        elif not self.cansignwithcertificate(certificate_id):
             return {
                 'error': ('can update claim for lbry://{}#{}, but the signing key is '
                           'missing for certificate {}').format(name, claim_id, certificate_id)
             }
+        else:
+            certificate = self.getclaimbyid(str(certificate_id))
+            if not certificate:
+                raise Exception('Certificate claim {} not found'.format(claim.certificate_id))
         validated, channel_name = self.validate_claim_signature_and_get_channel_name(claim,
                                                                                      certificate,
                                                                                      claim_address)
