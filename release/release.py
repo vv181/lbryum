@@ -50,7 +50,7 @@ def main():
 
     is_rc = re.search('\drc\d+$', repo.new_version) is not None
     # only have a release message for real releases, not for RCs
-    release_msg = None if is_rc else repo.get_unreleased_changelog()
+    release_msg = None if is_rc else repo.get_release_message()
     if release_msg is None:
         release_msg = ''
 
@@ -63,8 +63,8 @@ def main():
     auth = github.Github(gh_token)
     github_repo = auth.get_repo(repo_path)
 
-    # if not is_rc:
-    repo.bump_changelog()
+    if not is_rc:
+        repo.bump_changelog()
     repo.bumpversion()
 
     new_tag = repo.get_new_tag()
@@ -96,8 +96,8 @@ class Repo(object):
     def get_new_tag(self):
         return 'v' + self.new_version
 
-    def get_unreleased_changelog(self):
-        return self._changelog.get_unreleased()
+    def get_release_message(self):
+        return self._changelog.get_release_message(self.new_version)
 
     def bump_changelog(self):
         self._changelog.bump(self.new_version)

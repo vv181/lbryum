@@ -110,6 +110,10 @@ class Changelog(object):
         output.append("\n")
         return output
 
+    def get_release_message(self, version):
+        today = datetime.datetime.today()
+        return "## [{}] - {}\n{}".format(version, today.strftime('%Y-%m-%d'), '\n'.join(self.unreleased))
+
     def bump(self, version):
         if not self.unreleased:
             return
