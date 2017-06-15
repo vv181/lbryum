@@ -27,6 +27,8 @@ labeled as 2.7.1. Subsequent releases will follow
   *
   *
 
+## [2.8.4] - 2017-06-15
+
 ## [2.8.3] - 2017-06-15
 ### Added
  * added waitfortxinwallet command
