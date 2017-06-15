@@ -79,7 +79,6 @@ class Daemon(DaemonThread):
         self.server.register_function(self.run_cmdline, 'run_cmdline')
         self.server.register_function(self.ping, 'ping')
         self.server.register_function(self.run_daemon, 'daemon')
-        self.server.register_function(self.run_gui, 'gui')
 
     def ping(self):
         return True

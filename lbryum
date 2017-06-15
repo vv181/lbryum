@@ -63,7 +63,6 @@ except Exception:
 if is_bundle or is_local or is_android:
     import imp
     imp.load_module('lbryum', *imp.find_module('lib'))
-    imp.load_module('lbryum_gui', *imp.find_module('gui'))
 
 
 from lbryum import util
@@ -85,16 +84,6 @@ def prompt_password(prompt, confirm=True):
     if not password:
         password = None
     return password
-
-
-
-def init_gui(config, network, daemon, plugins):
-    gui_name = config.get('gui', 'qt')
-    if gui_name in ['lite', 'classic']:
-        gui_name = 'qt'
-    gui = __import__('lbryum_gui.' + gui_name, fromlist=['lbryum_gui'])
-    gui = gui.ElectrumGui(config, network, daemon, plugins)
-    return gui
 
 
 def run_non_RPC(config):
@@ -283,8 +272,6 @@ if __name__ == '__main__':
     if is_android:
         config_options = {
             'verbose': True,
-            'cmd': 'gui',
-            'gui': 'kivy' if is_kivy else 'android',
             #'auto_connect': True,
         }
     else:
@@ -312,8 +299,6 @@ if __name__ == '__main__':
     cmdname = config.get('cmd')
 
     # initialize plugins.
-    gui_name = config.get('gui', 'qt') if cmdname == 'gui' else 'cmdline'
-    plugins = Plugins(config, is_bundle or is_local or is_android, gui_name)
 
     # run non-RPC commands separately
     if cmdname in ['create', 'restore', 'deseed']:
@@ -323,23 +308,7 @@ if __name__ == '__main__':
     # check if a daemon is running
     server = get_daemon(config)
 
-    if cmdname == 'gui':
-        if server is not None:
-            result = server.gui(config_options)
-        else:
-            if not config.get('offline'):
-                network = Network(config)
-                network.start()
-            else:
-                network = None
-            daemon = Daemon(config, network)
-            daemon.start()
-            gui = init_gui(config, network, daemon, plugins)
-            daemon.gui = gui
-            gui.main()
-            sys.exit(0)
-
-    elif cmdname == 'daemon':
+    if cmdname == 'daemon':
         if server is not None:
             result = server.daemon(config_options)
         else:
