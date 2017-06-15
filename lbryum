@@ -68,7 +68,6 @@ if is_bundle or is_local or is_android:
 from lbryum import util
 from lbryum import SimpleConfig, Network, Wallet, WalletStorage
 from lbryum.util import print_msg, print_error, print_stderr, json_encode, json_decode, set_verbosity, InvalidPassword
-from lbryum.plugins import Plugins
 from lbryum.commands import get_parser, known_commands, Commands, config_variables
 from lbryum.daemon import Daemon, get_daemon
 
@@ -297,8 +296,6 @@ if __name__ == '__main__':
 
     config = SimpleConfig(config_options)
     cmdname = config.get('cmd')
-
-    # initialize plugins.
 
     # run non-RPC commands separately
     if cmdname in ['create', 'restore', 'deseed']:

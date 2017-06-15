@@ -17,7 +17,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from wallet import WalletStorage
-from plugins import run_hook
 from util import PrintError
 from wallet import Wallet, wallet_types
 from i18n import _

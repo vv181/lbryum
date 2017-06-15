@@ -38,7 +38,6 @@ from account import *
 from version import *
 
 from transaction import Transaction
-from plugins import run_hook
 import lbrycrd
 from coinchooser import COIN_CHOOSERS
 from synchronizer import Synchronizer
@@ -430,7 +429,6 @@ class Abstract_Wallet(PrintError):
                 changed = True
 
         if changed:
-            run_hook('set_label', self, name, text)
             self.storage.put('labels', self.labels)
 
         return changed
@@ -1163,7 +1161,6 @@ class Abstract_Wallet(PrintError):
         # Sort the inputs and outputs deterministically
         tx.BIP_LI01_sort()
 
-        run_hook('make_unsigned_transaction', self, tx)
         return tx
 
     def mktx(self, outputs, password, config, fee=None, change_addr=None, domain=None):
@@ -1235,7 +1232,6 @@ class Abstract_Wallet(PrintError):
         out = self.tx_result
         if out != tx_hash:
             return False, "error: " + out
-        run_hook('receive_tx', tx, self)
         return True, out
 
     def update_password(self, old_password, new_password):

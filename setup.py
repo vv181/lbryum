@@ -44,23 +44,9 @@ setup(
     install_requires=requires,
     packages=[
         'lbryum',
-        'lbryum_plugins',
-        'lbryum_plugins.audio_modem',
-        'lbryum_plugins.cosigner_pool',
-        'lbryum_plugins.email_requests',
-        'lbryum_plugins.exchange_rate',
-        'lbryum_plugins.greenaddress_instant',
-        'lbryum_plugins.keepkey',
-        'lbryum_plugins.labels',
-        'lbryum_plugins.ledger',
-        'lbryum_plugins.plot',
-        'lbryum_plugins.trezor',
-        'lbryum_plugins.trustedcoin',
-        'lbryum_plugins.virtualkeyboard',
     ],
     package_dir={
         'lbryum': 'lib',
-        'lbryum_plugins': 'plugins',
     },
     package_data={
         'lbryum': [
