@@ -1,15 +1,17 @@
-import json
 import logging
 import os
 import re
 import sys
 import threading
 import traceback
-import urllib
-import urlparse
 from collections import defaultdict
-from datetime import datetime
 from decimal import Decimal
+import socket
+import errno
+import json
+import ssl
+import time
+import Queue
 
 from i18n import _
 
@@ -18,11 +20,8 @@ log = logging.getLogger("lbryum")
 base_units = {'BTC': 8, 'mBTC': 5, 'uBTC': 2}
 
 
-def normalize_version(v):
-    return [int(x) for x in re.sub(r'(\.0+)*$', '', v).split(".")]
-
-
-class NotEnoughFunds(Exception): pass
+class NotEnoughFunds(Exception):
+    pass
 
 
 class InvalidPassword(Exception):
@@ -31,8 +30,16 @@ class InvalidPassword(Exception):
 
 
 class SilentException(Exception):
-    '''An exception that should probably be suppressed from the user'''
+    """An exception that should probably be suppressed from the user"""
     pass
+
+
+class Timeout(Exception):
+    pass
+
+
+def normalize_version(v):
+    return [int(x) for x in re.sub(r'(\.0+)*$', '', v).split(".")]
 
 
 class MyEncoder(json.JSONEncoder):
@@ -44,7 +51,7 @@ class MyEncoder(json.JSONEncoder):
 
 
 class PrintError(object):
-    '''A handy base class'''
+    """A handy base class"""
 
     def diagnostic_name(self):
         return self.__class__.__name__
@@ -69,7 +76,7 @@ class ThreadJob(PrintError):
 
 
 class DebugMem(ThreadJob):
-    '''A handy class for debugging GC memory leaks'''
+    """A handy class for debugging GC memory leaks"""
 
     def __init__(self, classes, interval=30):
         self.next_time = 0
@@ -149,7 +156,8 @@ def set_verbosity(b):
 
 
 def print_error(*args):
-    if not is_verbose: return
+    if not is_verbose:
+        return
     print_stderr(*args)
 
 
@@ -164,14 +172,6 @@ def print_msg(*args):
     args = [str(item) for item in args]
     sys.stdout.write(" ".join(args) + "\n")
     sys.stdout.flush()
-
-
-def json_encode(obj):
-    try:
-        s = json.dumps(obj, sort_keys=True, indent=4, cls=MyEncoder)
-    except TypeError:
-        s = repr(obj)
-    return s
 
 
 def json_decode(x):
@@ -249,17 +249,6 @@ def parse_json(message):
     return j, message[n + 1:]
 
 
-class timeout(Exception):
-    pass
-
-
-import socket
-import errno
-import json
-import ssl
-import time
-
-
 class SocketPipe:
     def __init__(self, socket):
         self.socket = socket
@@ -281,16 +270,16 @@ class SocketPipe:
             try:
                 data = self.socket.recv(1024)
             except socket.timeout:
-                raise timeout
+                raise Timeout
             except ssl.SSLError:
-                raise timeout
+                raise Timeout
             except socket.error, err:
                 if err.errno == 60:
-                    raise timeout
+                    raise Timeout
                 elif err.errno in [11, 35, 10035]:
                     # print_error("socket errno %d (resource temporarily unavailable)"% err.errno)
                     time.sleep(0.05)
-                    raise timeout
+                    raise Timeout
                 else:
                     print_error("pipe: socket error", err)
                     data = ''
@@ -332,42 +321,6 @@ class SocketPipe:
                 else:
                     traceback.print_exc(file=sys.stdout)
                     raise e
-
-
-import Queue
-
-
-class QueuePipe:
-    def __init__(self, send_queue=None, get_queue=None):
-        self.send_queue = send_queue if send_queue else Queue.Queue()
-        self.get_queue = get_queue if get_queue else Queue.Queue()
-        self.set_timeout(0.1)
-
-    def get(self):
-        try:
-            return self.get_queue.get(timeout=self.timeout)
-        except Queue.Empty:
-            raise timeout
-
-    def get_all(self):
-        responses = []
-        while True:
-            try:
-                r = self.get_queue.get_nowait()
-                responses.append(r)
-            except Queue.Empty:
-                break
-        return responses
-
-    def set_timeout(self, t):
-        self.timeout = t
-
-    def send(self, request):
-        self.send_queue.put(request)
-
-    def send_all(self, requests):
-        for request in requests:
-            self.send(request)
 
 
 class StoreDict(dict):
