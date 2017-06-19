@@ -1,8 +1,5 @@
 import re
 
-import dns
-
-import dnssec
 import lbrycrd
 from util import StoreDict
 
@@ -24,32 +21,7 @@ class Contacts(StoreDict):
                     'address': addr,
                     'type': 'contact'
                 }
-        out = self.resolve_openalias(k)
-        if out:
-            address, name, validated = out
-            return {
-                'address': address,
-                'name': name,
-                'type': 'openalias',
-                'validated': validated
-            }
         raise Exception("Invalid Bitcoin address or alias", k)
-
-    def resolve_openalias(self, url):
-        # support email-style addresses, per the OA standard
-        url = url.replace('@', '.')
-        records, validated = dnssec.query(url, dns.rdatatype.TXT)
-        prefix = 'btc'
-        for record in records:
-            string = record.strings[0]
-            if string.startswith('oa1:' + prefix):
-                address = self.find_regex(string, r'recipient_address=([A-Za-z0-9]+)')
-                name = self.find_regex(string, r'recipient_name=([^;]+)')
-                if not name:
-                    name = address
-                if not address:
-                    continue
-                return address, name, validated
 
     def find_regex(self, haystack, needle):
         regex = re.compile(needle)
