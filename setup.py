@@ -37,10 +37,6 @@ if False and platform.system() in ['Linux', 'FreeBSD', 'DragonFly']:
             usr_share = os.environ['$XDG_DATA_HOME']
         else:
             usr_share = os.path.expanduser('~/.local/share')
-    data_files += [
-        (os.path.join(usr_share, 'applications/'), ['lbryum.desktop']),
-        (os.path.join(usr_share, 'pixmaps/'), ['icons/electrum.png'])
-    ]
 
 setup(
     name="lbryum",
@@ -48,8 +44,6 @@ setup(
     install_requires=requires,
     packages=[
         'lbryum',
-        'lbryum_gui',
-        'lbryum_gui.qt',
         'lbryum_plugins',
         'lbryum_plugins.audio_modem',
         'lbryum_plugins.cosigner_pool',
@@ -66,7 +60,6 @@ setup(
     ],
     package_dir={
         'lbryum': 'lib',
-        'lbryum_gui': 'gui',
         'lbryum_plugins': 'plugins',
     },
     package_data={
