@@ -23,14 +23,15 @@ import os
 import pkgutil
 import string
 import unicodedata
-
+import logging
 import ecdsa
 import pbkdf2
 
-import i18n
-import version
-from lbrycrd import is_new_seed
-from util import print_error
+from lbryum import version
+from lbryum.lbrycrd import is_new_seed
+from lbryum.util import print_error
+
+log = logging.getLogger(__name__)
 
 # http://www.asahi-net.or.jp/~ax2s-kmtn/ref/unicode/e_asia.html
 CJK_INTERVALS = [
@@ -101,10 +102,7 @@ class Mnemonic(object):
     # Seed derivation no longer follows BIP39
     # Mnemonic phrase uses a hash based checksum, instead of a wordlist-dependent checksum
 
-    def __init__(self, lang=None):
-        if lang in [None, '']:
-            lang = i18n.language.info().get('language', 'en')
-        print_error('language', lang)
+    def __init__(self, lang="en"):
         filename = filenames.get(lang[0:2], 'english.txt')
         s = pkgutil.get_data('lbryum', os.path.join('wordlist', filename))
         s = unicodedata.normalize('NFKD', s.decode('utf8'))

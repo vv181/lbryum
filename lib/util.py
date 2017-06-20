@@ -11,9 +11,6 @@ import errno
 import json
 import ssl
 import time
-import Queue
-
-from i18n import _
 
 log = logging.getLogger("lbryum")
 
@@ -26,7 +23,7 @@ class NotEnoughFunds(Exception):
 
 class InvalidPassword(Exception):
     def __str__(self):
-        return _("Incorrect password")
+        return "Incorrect password"
 
 
 class SilentException(Exception):
@@ -59,10 +56,6 @@ class PrintError(object):
     def print_error(self, *msg):
         log.info(" ".join([str(m) for m in list(msg)]))
         print_error("[%s]" % self.diagnostic_name(), *msg)
-
-    def print_msg(self, *msg):
-        log.info(" ".join([str(m) for m in list(msg)]))
-        print_msg("[%s]" % self.diagnostic_name(), *msg)
 
 
 class ThreadJob(PrintError):
@@ -147,31 +140,9 @@ class DaemonThread(threading.Thread, PrintError):
             self.running = False
 
 
-is_verbose = False
-
-
-def set_verbosity(b):
-    global is_verbose
-    is_verbose = b
-
-
 def print_error(*args):
-    if not is_verbose:
-        return
-    print_stderr(*args)
-
-
-def print_stderr(*args):
-    args = [str(item) for item in args]
-    sys.stderr.write(" ".join(args) + "\n")
-    sys.stderr.flush()
-
-
-def print_msg(*args):
-    # Stringify args
-    args = [str(item) for item in args]
-    sys.stdout.write(" ".join(args) + "\n")
-    sys.stdout.flush()
+    msg = " ".join([str(item) for item in args]) + "\n"
+    log.error(msg)
 
 
 def json_decode(x):

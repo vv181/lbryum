@@ -1,21 +1,3 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 import ast
 import copy
 import json
@@ -27,16 +9,14 @@ from decimal import Decimal
 from functools import partial
 from unicodedata import normalize
 
-import lbrycrd
-from account import *
-from coinchooser import COIN_CHOOSERS
-from i18n import _
-from mnemonic import Mnemonic
-from synchronizer import Synchronizer
-from transaction import Transaction
-from util import NotEnoughFunds, PrintError, profiler
-from verifier import SPV
-from version import *
+from lbryum.account import *
+from lbryum.coinchooser import COIN_CHOOSERS
+from lbryum.mnemonic import Mnemonic
+from lbryum.synchronizer import Synchronizer
+from lbryum.transaction import Transaction
+from lbryum.util import NotEnoughFunds, PrintError, profiler
+from lbryum.verifier import SPV
+from lbryum.version import *
 
 # internal ID for imported account
 IMPORTED_ACCOUNT = '/x'
@@ -182,7 +162,8 @@ class Abstract_Wallet(PrintError):
         # Transactions pending verification.  A map from tx hash to transaction
         # height.  Access is not contended so no lock is needed.
         self.unverified_tx = {}
-        # Verified transactions.  Each value is a (height, timestamp, block_pos) tuple.  Access with self.lock.
+        # Verified transactions.  Each value is a (height, timestamp, block_pos) tuple.
+        # Access with self.lock.
         self.verified_tx = storage.get('verified_tx3', {})
 
         # there is a difference between wallet.up_to_date and interface.is_up_to_date()
@@ -1307,8 +1288,8 @@ class Abstract_Wallet(PrintError):
             while not self.is_up_to_date():
                 if callback:
                     msg = "%s\n%s %d" % (
-                        _("Please wait..."),
-                        _("Addresses generated:"),
+                        "Please wait...",
+                        "Addresses generated:",
                         len(self.addresses(True)))
                     callback(msg)
                 time.sleep(0.1)
@@ -1316,7 +1297,7 @@ class Abstract_Wallet(PrintError):
         def wait_for_network():
             while not self.network.is_connected():
                 if callback:
-                    msg = "%s \n" % (_("Connecting..."))
+                    msg = "%s \n" % ("Connecting...")
                     callback(msg)
                 time.sleep(0.1)
 
@@ -1644,7 +1625,8 @@ class BIP32_Wallet(Deterministic_Wallet):
 
     def get_master_private_key(self, account, password):
         k = self.master_private_keys.get(account)
-        if not k: return
+        if not k:
+            return
         xprv = pw_decode(k, password)
         try:
             deserialize_xkey(xprv)
@@ -1783,7 +1765,7 @@ class BIP32_HD_Wallet(BIP32_RD_Wallet):
         if self.can_change_password():
             self.check_password(password)
         assert self.next_account_number() == 0
-        self.create_next_account(password, _('Main account'))
+        self.create_next_account(password, 'Main account')
         self.create_next_account(password)
 
     def create_next_account(self, password, label=None):
