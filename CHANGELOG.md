@@ -12,11 +12,12 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Changed
+  * Renamed LICENCE to LICENSE
   *
   *
 
 ### Fixed
-  *
+  * set_default_subparser to `cmd` after https://github.com/lbryio/lbryum/pull/111
   *
 
 ### Deprecated
