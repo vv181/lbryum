@@ -2169,6 +2169,6 @@ def get_parser():
             for k, v in cvh.items():
                 group.add_argument(k, nargs='?', help=v)
 
-    # 'gui' is the default command
-    parser.set_default_subparser('gui')
+    # 'cmd' is the default command
+    parser.set_default_subparser('cmd')
     return parser
