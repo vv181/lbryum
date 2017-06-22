@@ -12,12 +12,11 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Changed
-  * Renamed LICENCE to LICENSE
   *
   *
 
 ### Fixed
-  * set_default_subparser to `cmd` after https://github.com/lbryio/lbryum/pull/111
+  *
   *
 
 ### Deprecated
@@ -25,9 +24,21 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Removed
-  * Removed lbryum gui
-  * Removed plugins
-  * Remove unused files and directories
+  *
+  *
+
+## [3.0.0] - 2017-06-21
+### Changed
+ * Renamed LICENCE to LICENSE
+
+### Removed
+ * Removed lbryum gui
+ * Removed plugins
+ * Remove unused files and directories
+
+### Fixed
+ * set_default_subparser to `cmd` after https://github.com/lbryio/lbryum/pull/111
+
 
 ## [2.8.3] - 2017-06-15
 ### Added
