@@ -657,7 +657,7 @@ class Commands:
 
     @command('w')
     def gettransaction(self, txid):
-        """Retrieve a transaction. """
+        """Retrieve a transaction in deserialized json format"""
         tx = self.wallet.transactions.get(txid) if self.wallet else None
         if tx is None and self.network:
             raw = self.network.synchronous_get(('blockchain.transaction.get', [txid]))
@@ -665,7 +665,7 @@ class Commands:
                 tx = Transaction(raw)
             else:
                 raise BaseException("Unknown transaction")
-        return tx.as_dict()
+        return deserialize_transaction(str(tx))
 
     @command('')
     def encrypt(self, pubkey, message):
