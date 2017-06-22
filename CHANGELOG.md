@@ -12,7 +12,7 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Changed
-  * have gettransaction command return deserialized JSON instead of hex
+  *
   *
 
 ### Fixed
@@ -26,6 +26,11 @@ labeled as 2.7.1. Subsequent releases will follow
 ### Removed
   *
   *
+
+## [3.0.1] - 2017-06-21
+### Changed
+ * have gettransaction command return deserialized JSON instead of hex
+
 
 ## [3.0.0] - 2017-06-21
 ### Changed
