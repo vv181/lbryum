@@ -1,21 +1,3 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 import argparse
 import ast
 import base64
@@ -30,22 +12,28 @@ from functools import wraps
 
 from ecdsa import BadSignatureError
 
-import contacts
-import lbrycrd
-import util
-from claims import InvalidProofError, verify_proof
-from lbrycrd import COIN, Hash, TYPE_ADDRESS, hash_160, hash_160_to_bc_address, is_address
-from lbrycrd import RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS, TYPE_CLAIM, TYPE_SUPPORT, TYPE_UPDATE
-from lbrycrd import base_decode
 from lbryschema.claim import ClaimDict
 from lbryschema.decode import smart_decode
 from lbryschema.error import DecodeError
 from lbryschema.signer import SECP256k1, get_signer
 from lbryschema.uri import URIParseError, parse_lbry_uri
-from transaction import Transaction
-from transaction import decode_claim_script, deserialize as deserialize_transaction, script_GetOp
-from transaction import get_address_from_output_script
-from util import NotEnoughFunds, format_satoshis, print_msg, print_stderr
+
+from lbryum.contacts import Contacts
+from lbryum.constants import COIN, TYPE_ADDRESS, TYPE_CLAIM, TYPE_SUPPORT, TYPE_UPDATE
+from lbryum.constants import RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS
+from lbryum.hashing import Hash, hash_160
+from lbryum.claims import verify_proof
+from lbryum.lbrycrd import hash_160_to_bc_address, is_address, decode_claim_id_hex
+from lbryum.lbrycrd import encode_claim_id_hex, encrypt_message, public_key_from_private_key
+from lbryum.lbrycrd import claim_id_hash, verify_message
+from lbryum.base import base_decode
+from lbryum.transaction import Transaction
+from lbryum.transaction import decode_claim_script, deserialize as deserialize_transaction
+from lbryum.transaction import get_address_from_output_script, script_GetOp
+from lbryum.errors import InvalidProofError, NotEnoughFunds
+from lbryum.util import format_satoshis, rev_hex
+from lbryum.mnemonic import Mnemonic
+
 
 log = logging.getLogger(__name__)
 
@@ -163,7 +151,7 @@ class Commands:
         self._callback = callback
         self._password = password
         self.new_password = new_password
-        self.contacts = contacts.Contacts(self.config)
+        self.contacts = Contacts(self.config)
 
     def _run(self, method, args, password_getter):
         cmd = known_commands[method]
@@ -225,14 +213,14 @@ class Commands:
     @command('')
     def make_seed(self, nbits=128, entropy=1, language=None):
         """Create a seed"""
-        from mnemonic import Mnemonic
+        language = language or "en"
         s = Mnemonic(language).make_seed(nbits, custom_entropy=entropy)
         return s.encode('utf8')
 
     @command('')
     def check_seed(self, seed, entropy=1, language=None):
         """Check that a seed was generated with given entropy"""
-        from mnemonic import Mnemonic
+        language = language or "en"
         return Mnemonic(language).check_seed(seed, entropy)
 
     @command('n')
@@ -294,7 +282,7 @@ class Commands:
         """Sign a transaction. The wallet keys will be used unless a private key is provided."""
         t = Transaction(tx)
         if privkey:
-            pubkey = lbrycrd.public_key_from_private_key(privkey)
+            pubkey = public_key_from_private_key(privkey)
             t.sign({pubkey: privkey})
         else:
             self.wallet.sign_transaction(t, self._password)
@@ -469,7 +457,7 @@ class Commands:
     def verifymessage(self, address, signature, message):
         """Verify a signature."""
         sig = base64.b64decode(signature)
-        return lbrycrd.verify_message(address, sig, message)
+        return verify_message(address, sig, message)
 
     def _mktx(self, outputs, fee, change_addr, domain, nocheck, unsigned, claim_name=None,
               claim_val=None,
@@ -681,7 +669,7 @@ class Commands:
     @command('')
     def encrypt(self, pubkey, message):
         """Encrypt a message with a public key. Use quotes if the message contains whitespaces."""
-        return lbrycrd.encrypt_message(message, pubkey)
+        return encrypt_message(message, pubkey)
 
     @command('wp')
     def decrypt(self, pubkey, encrypted):
@@ -1470,9 +1458,7 @@ class Commands:
                 nout = i
         assert (nout is not None)
 
-        claimid = lbrycrd.encode_claim_id_hex(
-            lbrycrd.claim_id_hash(lbrycrd.rev_hex(tx.hash()).decode('hex'), nout)
-        )
+        claimid = encode_claim_id_hex(claim_id_hash(rev_hex(tx.hash()).decode('hex'), nout))
         return {"success": True, "txid": tx.hash(), "nout": nout, "tx": str(tx),
                 "fee": str(Decimal(tx.get_fee()) / COIN), "claim_id": claimid}
 
@@ -1587,7 +1573,7 @@ class Commands:
         if change_addr is None:
             change_addr = self.wallet.create_new_address(for_change=True)
 
-        claim_id = lbrycrd.decode_claim_id_hex(claim_id)
+        claim_id = decode_claim_id_hex(claim_id)
         amount = int(COIN * amount)
         if amount <= 0:
             return {'success': False, 'reason': 'Amount must be greater than 0'}
@@ -1741,7 +1727,7 @@ class Commands:
                         return {'success': False,
                                 'reason': "Cannot sign with certificate %s" % certificate_id}
 
-        decoded_claim_id = lbrycrd.decode_claim_id_hex(claim_id)
+        decoded_claim_id = decode_claim_id_hex(claim_id)
 
         if amount is not None:
             amount = int(COIN * amount)
@@ -2075,10 +2061,6 @@ def add_network_options(parser):
                         help="set proxy [type:]host[:port], where type is socks4,socks5 or http")
 
 
-from util import profiler
-
-
-@profiler
 def get_parser():
     # parent parser, because set_default_subparser removes global options
     parent_parser = argparse.ArgumentParser('parent', add_help=False)

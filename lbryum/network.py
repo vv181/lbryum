@@ -10,12 +10,13 @@ import time
 from collections import defaultdict, deque
 from threading import Lock
 
-from lbryum import lbrycrd
-
-import util
-from blockchain import BLOCKS_PER_CHUNK, get_blockchain
-from interface import Connection, Interface
-from version import LBRYUM_VERSION, PROTOCOL_VERSION
+from lbryum import __version__ as LBRYUM_VERSION
+from lbryum.constants import COIN
+from lbryum.util import DaemonThread, normalize_version
+from lbryum.blockchain import BLOCKS_PER_CHUNK, get_blockchain
+from lbryum.interface import Connection, Interface
+from lbryum.simple_config import SimpleConfig
+from lbryum.version import PROTOCOL_VERSION
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,6 @@ SERVER_RETRY_INTERVAL = 10
 
 def parse_servers(result):
     """ parse servers list into dict format"""
-    from version import PROTOCOL_VERSION
     servers = {}
     for item in result:
         host = item[1]
@@ -59,8 +59,8 @@ def parse_servers(result):
                     pruning_level = v[1:]
                 if pruning_level == '': pruning_level = '0'
         try:
-            is_recent = cmp(util.normalize_version(version),
-                            util.normalize_version(PROTOCOL_VERSION)) >= 0
+            is_recent = cmp(normalize_version(version),
+                            normalize_version(PROTOCOL_VERSION)) >= 0
         except Exception:
             is_recent = False
 
@@ -87,8 +87,6 @@ def pick_random_server(hostmap, protocol='t', exclude_set=set()):
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
 
-
-from simple_config import SimpleConfig
 
 proxy_modes = ['socks4', 'socks5', 'http']
 
@@ -131,7 +129,7 @@ def serialize_server(host, port, protocol):
     return str(':'.join([host, port, protocol]))
 
 
-class Network(util.DaemonThread):
+class Network(DaemonThread):
     """The Network class manages a set of connections to remote lbryum
     servers, each connected socket is handled by an Interface() object.
     Connections are initiated by a Connection() thread which stops once
@@ -147,8 +145,8 @@ class Network(util.DaemonThread):
     def __init__(self, config=None):
         if config is None:
             config = {}  # Do not use mutables as default values!
-        util.DaemonThread.__init__(self)
         self.config = SimpleConfig(config) if type(config) == type({}) else config
+        DaemonThread.__init__(self)
         self.num_server = 8 if not self.config.get('oneserver') else 0
         self.blockchain = get_blockchain(self.config, self)
         # A deque of interface header requests, processed left-to-right
@@ -449,12 +447,12 @@ class Network(util.DaemonThread):
                 self.notify('banner')
         elif method == 'blockchain.estimatefee':
             if error is None:
-                self.fee = int(result * lbrycrd.COIN)
+                self.fee = int(result * COIN)
                 log.info("recommended fee %s", self.fee)
                 self.notify('fee')
         elif method == 'blockchain.relayfee':
             if error is None:
-                self.relay_fee = int(result * lbrycrd.COIN)
+                self.relay_fee = int(result * COIN)
                 log.info("relayfee %s", self.relay_fee)
         elif method == 'blockchain.block.get_chunk':
             self.on_get_chunk(interface, response)

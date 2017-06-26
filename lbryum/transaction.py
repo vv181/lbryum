@@ -1,34 +1,18 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
-# Note: The deserialization code originally comes from ABE.
-
-
-#
-# Workalike python implementation of Bitcoin's CDataStream class.
-#
-import struct
 import sys
+import types
+import exceptions
+import struct
+import ecdsa
+from ecdsa.curves import SECP256k1
+import hashlib
 
-import lbrycrd
-from lbrycrd import *
-from util import print_error, profiler
+from lbryum.constants import TYPE_SCRIPT, TYPE_PUBKEY, TYPE_UPDATE, TYPE_SUPPORT, TYPE_CLAIM
+from lbryum.constants import TYPE_ADDRESS
+from lbryum.hashing import Hash, hash_160, hash_encode
+from lbryum.lbrycrd import hash_160_to_bc_address, bc_address_to_hash_160, op_push
+from lbryum.lbrycrd import address_from_private_key, point_to_ser, MyVerifyingKey, MySigningKey
+from lbryum.lbrycrd import public_key_to_bc_address, regenerate_key, public_key_from_private_key
+from lbryum.util import print_error, profiler, var_int, int_to_hex
 
 NO_SIGNATURE = 'ff'
 
@@ -161,13 +145,6 @@ class BCDataStream(object):
     def _write_num(self, format, num):
         s = struct.pack(format, num)
         self.write(s)
-
-
-#
-# enum-like type
-# From the Python Cookbook, downloaded from http://code.activestate.com/recipes/67107/
-#
-import types, exceptions
 
 
 class EnumException(exceptions.Exception):
@@ -969,7 +946,7 @@ class Transaction:
                     for_sig = Hash(self.tx_for_sig(i).decode('hex'))
                     pkey = regenerate_key(sec)
                     secexp = pkey.secret
-                    private_key = lbrycrd.MySigningKey.from_secret_exponent(secexp, curve=SECP256k1)
+                    private_key = MySigningKey.from_secret_exponent(secexp, curve=SECP256k1)
                     public_key = private_key.get_verifying_key()
                     sig = private_key.sign_digest_deterministic(for_sig, hashfunc=hashlib.sha256,
                                                                 sigencode=ecdsa.util.sigencode_der)

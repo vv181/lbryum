@@ -5,19 +5,34 @@ import os
 import random
 import threading
 import time
+import hashlib
+import logging
+import re
+import pbkdf2
+import hmac
 from decimal import Decimal
 from functools import partial
 from unicodedata import normalize
 
-from lbryum.account import *
+from lbryum import __version__ as LBRYUM_VERSION
+from lbryum.account import ImportedAccount, Multisig_Account, BIP32_Account
+from lbryum.constants import TYPE_ADDRESS, TYPE_CLAIM, TYPE_SUPPORT, TYPE_UPDATE, TYPE_PUBKEY
+from lbryum.constants import EXPIRATION_BLOCKS, COINBASE_MATURITY, RECOMMENDED_FEE
 from lbryum.coinchooser import COIN_CHOOSERS
 from lbryum.mnemonic import Mnemonic
 from lbryum.synchronizer import Synchronizer
 from lbryum.transaction import Transaction
-from lbryum.util import NotEnoughFunds, PrintError, profiler
+from lbryum.util import PrintError, profiler, rev_hex
+from lbryum.errors import NotEnoughFunds, InvalidPassword
 from lbryum.verifier import SPV
-from lbryum.version import *
+from lbryum.version import NEW_SEED_VERSION
+from lbryum.lbrycrd import regenerate_key, is_address, is_compressed, pw_encode, pw_decode
+from lbryum.lbrycrd import is_new_seed, hash_160_to_bc_address, xpub_from_xprv, bip32_private_key
+from lbryum.lbrycrd import encode_claim_id_hex, deserialize_xkey, claim_id_hash, is_private_key
+from lbryum.lbrycrd import public_key_from_private_key, public_key_to_bc_address
+from lbryum.lbrycrd import bip32_public_derivation, bip32_private_derivation, bip32_root
 
+log = logging.getLogger(__name__)
 # internal ID for imported account
 IMPORTED_ACCOUNT = '/x'
 
@@ -986,21 +1001,21 @@ class Abstract_Wallet(PrintError):
                     continue
                 if txout[0] & (TYPE_CLAIM | TYPE_UPDATE | TYPE_SUPPORT):
                     local_height = self.get_local_height()
-                    expired = tx_height + lbrycrd.EXPIRATION_BLOCKS <= local_height
+                    expired = tx_height + EXPIRATION_BLOCKS <= local_height
                     output = {
                         'txid': prevout_hash,
                         'nout': int(prevout_n),
                         'address': addr,
                         'amount': Decimal(value),
                         'height': tx_height,
-                        'expiration_height': tx_height + lbrycrd.EXPIRATION_BLOCKS,
+                        'expiration_height': tx_height + EXPIRATION_BLOCKS,
                         'expired': expired,
                         'confirmations': local_height - tx_height,
                         'is_spent': txo in txis,
                     }
                     if tx_height:
                         output['height'] = tx_height
-                        output['expiration_height'] = tx_height + lbrycrd.EXPIRATION_BLOCKS
+                        output['expiration_height'] = tx_height + EXPIRATION_BLOCKS
                         output['expired'] = expired
                         output['confirmations'] = local_height - tx_height
                         output['is_pending'] = False
@@ -1016,24 +1031,24 @@ class Abstract_Wallet(PrintError):
                         claim_name, claim_value = txout[1][0]
                         output['name'] = claim_name
                         output['value'] = claim_value.encode('hex')
-                        claim_id = lbrycrd.claim_id_hash(rev_hex(output['txid']).decode('hex'),
-                                                         output['nout'])
-                        claim_id = lbrycrd.encode_claim_id_hex(claim_id)
+                        claim_id = claim_id_hash(rev_hex(output['txid']).decode('hex'),
+                                                 output['nout'])
+                        claim_id = encode_claim_id_hex(claim_id)
                         output['claim_id'] = claim_id
                     elif txout[0] & TYPE_SUPPORT:
                         output['category'] = 'support'
                         claim_name, claim_id = txout[1][0]
                         output['name'] = claim_name
-                        output['claim_id'] = lbrycrd.encode_claim_id_hex(claim_id)
+                        output['claim_id'] = encode_claim_id_hex(claim_id)
                     elif txout[0] & TYPE_UPDATE:
                         output['category'] = 'update'
                         claim_name, claim_id, claim_value = txout[1][0]
                         output['name'] = claim_name
                         output['value'] = claim_value.encode('hex')
-                        output['claim_id'] = lbrycrd.encode_claim_id_hex(claim_id)
+                        output['claim_id'] = encode_claim_id_hex(claim_id)
                     if not expired:
                         output[
-                            'blocks_to_expiration'] = tx_height + lbrycrd.EXPIRATION_BLOCKS - local_height
+                            'blocks_to_expiration'] = tx_height + EXPIRATION_BLOCKS - local_height
                     claims.append(output)
         return claims
 
@@ -1057,9 +1072,12 @@ class Abstract_Wallet(PrintError):
     def fee_per_kb(self, config):
         b = config.get('dynamic_fees')
         f = config.get('fee_factor', 50)
-        F = config.get('fee_per_kb', lbrycrd.RECOMMENDED_FEE)
-        return min(lbrycrd.RECOMMENDED_FEE, self.network.fee * (
-        50 + f) / 100) if b and self.network and self.network.fee else F
+        F = config.get('fee_per_kb', RECOMMENDED_FEE)
+        if b and self.network and self.network.fee:
+            result = min(RECOMMENDED_FEE, self.network.fee * (50 + f) / 100)
+        else:
+            result = F
+        return result
 
     def relayfee(self):
         RELAY_FEE = 5000
@@ -1391,7 +1409,7 @@ class Abstract_Wallet(PrintError):
 
     def get_private_key_from_xpubkey(self, x_pubkey, password):
         if x_pubkey[0:2] in ['02', '03', '04']:
-            addr = lbrycrd.public_key_to_bc_address(x_pubkey.decode('hex'))
+            addr = public_key_to_bc_address(x_pubkey.decode('hex'))
             if self.is_mine(addr):
                 return self.get_private_key(addr, password)[0]
         elif x_pubkey[0:2] == 'ff':
@@ -1412,7 +1430,7 @@ class Abstract_Wallet(PrintError):
 
     def can_sign_xpubkey(self, x_pubkey):
         if x_pubkey[0:2] in ['02', '03', '04']:
-            addr = lbrycrd.public_key_to_bc_address(x_pubkey.decode('hex'))
+            addr = public_key_to_bc_address(x_pubkey.decode('hex'))
             return self.is_mine(addr)
         elif x_pubkey[0:2] == 'ff':
             if not isinstance(self, BIP32_Wallet): return False
@@ -1672,7 +1690,7 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
     wallet_type = 'xpub'
 
     def create_xprv_wallet(self, xprv, password):
-        xpub = lbrycrd.xpub_from_xprv(xprv)
+        xpub = xpub_from_xprv(xprv)
         account = BIP32_Account({'xpub': xpub})
         self.storage.put('seed_version', self.seed_version)
         self.add_master_private_key(self.root_name, xprv, password)
@@ -1812,7 +1830,6 @@ class BIP44_Wallet(BIP32_HD_Wallet):
     @staticmethod
     def mnemonic_to_seed(mnemonic, passphrase):
         # See BIP39
-        import pbkdf2, hashlib, hmac
         PBKDF2_ROUNDS = 2048
         mnemonic = normalize('NFKD', ' '.join(mnemonic.split()))
         passphrase = BIP44_Wallet.normalize_passphrase(passphrase)
@@ -1903,7 +1920,7 @@ class Wallet(object):
         if not seed_version:
             seed_version = NEW_SEED_VERSION
 
-        if seed_version not in [OLD_SEED_VERSION, NEW_SEED_VERSION]:
+        if seed_version not in [NEW_SEED_VERSION]:
             msg = "Your wallet has an unsupported seed version."
             msg += '\n\nWallet file: %s' % os.path.abspath(storage.path)
             if seed_version in [5, 7, 8, 9, 10]:
@@ -1976,12 +1993,12 @@ class Wallet(object):
     @staticmethod
     def is_address(text):
         parts = text.split()
-        return bool(parts) and all(lbrycrd.is_address(x) for x in parts)
+        return bool(parts) and all(is_address(x) for x in parts)
 
     @staticmethod
     def is_private_key(text):
         parts = text.split()
-        return bool(parts) and all(lbrycrd.is_private_key(x) for x in parts)
+        return bool(parts) and all(is_private_key(x) for x in parts)
 
     @staticmethod
     def is_any(text):
@@ -2048,7 +2065,7 @@ class Wallet(object):
         for i, text in enumerate(key_list):
             name = "x%d/" % (i + 1)
             if Wallet.is_xprv(text):
-                xpub = lbrycrd.xpub_from_xprv(text)
+                xpub = xpub_from_xprv(text)
                 wallet.add_master_public_key(name, xpub)
                 wallet.add_master_private_key(name, text, password)
             elif Wallet.is_xpub(text):

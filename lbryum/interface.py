@@ -1,41 +1,19 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
 import logging
 import os
-import re
 import socket
-import ssl
 import sys
 import threading
 import time
-import traceback
-
 import requests.certs
+from lbryum.util import PrintError
+from lbryum.errors import Timeout
+from lbryum.socket_pipe import SocketPipe
 
 if getattr(sys, 'frozen', False) and os.name == "nt":
     # When frozen for windows distribution, get the include cert
     ca_path = os.path.join(os.path.dirname(sys.executable), 'cacert.pem')
 else:
     ca_path = requests.certs.where()
-
-import util
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +34,7 @@ def Connection(server, queue, config_path):
     return c
 
 
-class TcpConnection(threading.Thread, util.PrintError):
+class TcpConnection(threading.Thread, PrintError):
     def __init__(self, server, queue, config_path):
         threading.Thread.__init__(self)
         self.daemon = True
@@ -103,7 +81,7 @@ class TcpConnection(threading.Thread, util.PrintError):
         self.queue.put((self.server, socket))
 
 
-class Interface(util.PrintError):
+class Interface(PrintError):
     """The Interface class handles a socket connected to a single remote
     lbryum server.  It's exposed API is:
 
@@ -117,7 +95,7 @@ class Interface(util.PrintError):
         self.host, _, _ = server.split(':')
         self.socket = socket
 
-        self.pipe = util.SocketPipe(socket)
+        self.pipe = SocketPipe(socket)
         self.pipe.set_timeout(0.0)  # Don't wait for data
         # Dump network messages.  Set at runtime from the console.
         self.debug = False
@@ -199,7 +177,7 @@ class Interface(util.PrintError):
         while True:
             try:
                 response = self.pipe.get()
-            except util.Timeout:
+            except Timeout:
                 break
             if response is None:
                 responses.append((None, None))

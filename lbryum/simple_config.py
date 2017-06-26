@@ -1,10 +1,14 @@
 import ast
 import json
+import logging
 import os
 import threading
+import ConfigParser
 from copy import deepcopy
 
-from util import print_error, print_stderr, user_dir
+from lbryum.util import user_dir
+
+log = logging.getLogger(__name__)
 
 SYSTEM_CONFIG_PATH = "/etc/lbryum.conf"
 
@@ -191,12 +195,6 @@ def read_system_config(path=SYSTEM_CONFIG_PATH):
     """Parse and return the system config settings in /etc/lbryum.conf."""
     result = {}
     if os.path.exists(path):
-        try:
-            import ConfigParser
-        except ImportError:
-            print "cannot parse lbryum.conf. please install ConfigParser"
-            return
-
         p = ConfigParser.ConfigParser()
         try:
             p.read(path)
