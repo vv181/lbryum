@@ -219,8 +219,8 @@ class Abstract_Wallet(PrintError):
         for tx_hash, raw in tx_list.items():
             tx = Transaction(raw)
             self.transactions[tx_hash] = tx
-            if self.txi.get(tx_hash) is None and self.txo.get(tx_hash) is None and (
-                tx_hash not in self.pruned_txo.values()):
+            if self.txi.get(tx_hash) is None and self.txo.get(tx_hash) is None and\
+                    (tx_hash not in self.pruned_txo.values()):
                 self.print_error("removing unreferenced tx", tx_hash)
                 self.transactions.pop(tx_hash)
 
@@ -253,7 +253,8 @@ class Abstract_Wallet(PrintError):
             self.storage.write()
 
     def set_default_certificate(self, claim_id, overwrite_existing=True, write=False):
-        if self.default_certificate_claim is not None and overwrite_existing or not self.default_certificate_claim:
+        if self.default_certificate_claim is not None and overwrite_existing or not \
+                self.default_certificate_claim:
             self.storage.put('default_certificate_claim', claim_id)
             if write:
                 self.storage.write()
@@ -359,7 +360,8 @@ class Abstract_Wallet(PrintError):
             self.save_transactions(write=True)
 
     def is_up_to_date(self):
-        with self.lock: return self.up_to_date
+        with self.lock:
+            return self.up_to_date
 
     def is_imported(self, addr):
         account = self.accounts.get(IMPORTED_ACCOUNT)
@@ -428,9 +430,11 @@ class Abstract_Wallet(PrintError):
         return address in self.addresses(True)
 
     def is_change(self, address):
-        if not self.is_mine(address): return False
+        if not self.is_mine(address):
+            return False
         acct, s = self.get_address_index(address)
-        if s is None: return False
+        if s is None:
+            return False
         return s[0] == 1
 
     def get_address_index(self, address):
@@ -483,11 +487,11 @@ class Abstract_Wallet(PrintError):
         self.network.trigger_callback('verified', tx_hash, conf, timestamp)
 
     def get_unverified_txs(self):
-        '''Returns a map from tx hash to transaction height'''
+        """Returns a map from tx hash to transaction height"""
         return self.unverified_tx
 
     def undo_verifications(self, height):
-        '''Used by the verifier when a reorg has happened'''
+        """Used by the verifier when a reorg has happened"""
         txs = []
         with self.lock:
             for tx_hash, item in self.verified_tx:
@@ -507,7 +511,8 @@ class Abstract_Wallet(PrintError):
             if tx in self.verified_tx:
                 height, timestamp, pos = self.verified_tx[tx]
                 conf = (self.get_local_height() - height + 1)
-                if conf <= 0: timestamp = None
+                if conf <= 0:
+                    timestamp = None
             elif tx in self.unverified_tx:
                 conf = -1
                 timestamp = None
@@ -669,7 +674,7 @@ class Abstract_Wallet(PrintError):
             raise BaseException('nOut is too large')
         txout = txouts[nOut]
         txout_type, txout_dest, txout_value = txout
-        if not (txout_type & (TYPE_CLAIM | TYPE_UPDATE | TYPE_SUPPORT)):
+        if not txout_type & (TYPE_CLAIM | TYPE_UPDATE | TYPE_SUPPORT):
             raise BaseException('txid and nOut does not refer to a claimtrie transaction')
 
         address = txout_dest[1]
@@ -696,7 +701,7 @@ class Abstract_Wallet(PrintError):
             i['claim_value'] = txout_dest[0][2]
         else:
             # should not reach here
-            assert (0)
+            raise ZeroDivisionError()
 
         self.add_input_info(i)
         return i
@@ -767,16 +772,16 @@ class Abstract_Wallet(PrintError):
         '''acc_id of None means all user-visible accounts'''
         addr_list = []
         acc_ids = self.accounts_to_show() if acc_id is None else [acc_id]
-        for acc_id in acc_ids:
-            if acc_id in self.accounts:
-                acc = self.accounts[acc_id]
+        for _acc_id in acc_ids:
+            if _acc_id in self.accounts:
+                acc = self.accounts[_acc_id]
                 addr_list += acc.get_addresses(0)
                 if include_change:
                     addr_list += acc.get_addresses(1)
         return addr_list
 
     def get_account_from_address(self, addr):
-        "Returns the account that contains this address, or None"
+        """Returns the account that contains this address, or None"""
         for acc_id in self.accounts:  # similar to get_address_index but simpler
             if addr in self.get_account_addresses(acc_id):
                 return acc_id
@@ -820,8 +825,8 @@ class Abstract_Wallet(PrintError):
                     return addr
 
     def add_transaction(self, tx_hash, tx):
-        print_error("Adding tx: ", tx_hash)
-        is_coinbase = tx.inputs()[0].get('is_coinbase') == True
+        log.info("Adding tx: %s", tx_hash)
+        is_coinbase = True if tx.inputs()[0].get('is_coinbase') else False
         with self.transaction_lock:
             # add inputs
             self.txi[tx_hash] = d = {}
@@ -1054,7 +1059,7 @@ class Abstract_Wallet(PrintError):
 
     def get_label(self, tx_hash):
         label = self.labels.get(tx_hash, '')
-        if label is '':
+        if label == '':
             label = self.get_default_label(tx_hash)
         return label
 
@@ -1091,7 +1096,7 @@ class Abstract_Wallet(PrintError):
 
     def coin_chooser_name(self, config):
         kind = config.get('coin_chooser')
-        if not kind in COIN_CHOOSERS:
+        if kind not in COIN_CHOOSERS:
             kind = 'Priority'
         return kind
 
@@ -1433,7 +1438,8 @@ class Abstract_Wallet(PrintError):
             addr = public_key_to_bc_address(x_pubkey.decode('hex'))
             return self.is_mine(addr)
         elif x_pubkey[0:2] == 'ff':
-            if not isinstance(self, BIP32_Wallet): return False
+            if not isinstance(self, BIP32_Wallet):
+                return False
             xpub, sequence = BIP32_Account.parse_xpubkey(x_pubkey)
             return xpub in [self.master_public_keys[k] for k in self.master_private_keys.keys()]
         elif x_pubkey[0:2] == 'fd':
@@ -1444,7 +1450,7 @@ class Abstract_Wallet(PrintError):
             raise BaseException("z")
 
     def is_watching_only(self):
-        False
+        return False
 
     def can_change_password(self):
         return not self.is_watching_only()
@@ -1524,31 +1530,32 @@ class Deterministic_Wallet(Abstract_Wallet):
     def get_mnemonic(self, password):
         return self.get_seed(password)
 
-    def change_gap_limit(self, value):
-        '''This method is not called in the code, it is kept for console use'''
-        if value >= self.gap_limit:
-            self.gap_limit = value
-            self.storage.put('gap_limit', self.gap_limit)
-            return True
-
-        elif value >= self.min_acceptable_gap():
-            for key, account in self.accounts.items():
-                addresses = account.get_addresses(False)
-                k = self.num_unused_trailing_addresses(addresses)
-                n = len(addresses) - k + value
-                account.receiving_pubkeys = account.receiving_pubkeys[0:n]
-                account.receiving_addresses = account.receiving_addresses[0:n]
-            self.gap_limit = value
-            self.storage.put('gap_limit', self.gap_limit)
-            self.save_accounts()
-            return True
-        else:
-            return False
+    # def change_gap_limit(self, value):
+    #     '''This method is not called in the code, it is kept for console use'''
+    #     if value >= self.gap_limit:
+    #         self.gap_limit = value
+    #         self.storage.put('gap_limit', self.gap_limit)
+    #         return True
+    #
+    #     elif value >= self.min_acceptable_gap():
+    #         for key, account in self.accounts.items():
+    #             addresses = account.get_addresses(False)
+    #             k = self.num_unused_trailing_addresses(addresses)
+    #             n = len(addresses) - k + value
+    #             account.receiving_pubkeys = account.receiving_pubkeys[0:n]
+    #             account.receiving_addresses = account.receiving_addresses[0:n]
+    #         self.gap_limit = value
+    #         self.storage.put('gap_limit', self.gap_limit)
+    #         self.save_accounts()
+    #         return True
+    #     else:
+    #         return False
 
     def num_unused_trailing_addresses(self, addresses):
         k = 0
         for a in addresses[::-1]:
-            if self.history.get(a): break
+            if self.history.get(a):
+                break
             k = k + 1
         return k
 
@@ -1565,7 +1572,8 @@ class Deterministic_Wallet(Abstract_Wallet):
                     n = 0
                 else:
                     n += 1
-                    if n > nmax: nmax = n
+                    if n > nmax:
+                        nmax = n
         return nmax + 1
 
     def default_account(self):
@@ -1709,12 +1717,12 @@ class BIP32_RD_Wallet(BIP32_Wallet):
     # Abstract base class for a BIP32 wallet with a self.root_derivation
 
     @classmethod
-    def account_derivation(self, account_id):
-        return self.root_derivation + account_id
+    def account_derivation(cls, account_id):
+        return cls.root_derivation + account_id
 
     @classmethod
-    def address_derivation(self, account_id, change, address_index):
-        account_derivation = self.account_derivation(account_id)
+    def address_derivation(cls, account_id, change, address_index):
+        account_derivation = cls.account_derivation(account_id)
         return "%s/%d/%d" % (account_derivation, change, address_index)
 
     def address_id(self, address):
@@ -1743,7 +1751,7 @@ class BIP32_HD_Wallet(BIP32_RD_Wallet):
     # Abstract base class for a BIP32 wallet that admits account creation
 
     def __init__(self, storage):
-        BIP32_Wallet.__init__(self, storage)
+        BIP32_RD_Wallet.__init__(self, storage)
         # Backwards-compatibility.  Remove legacy "next_account2" and
         # drop unused master public key to avoid duplicate errors
         acc2 = storage.get('next_account2', None)
@@ -1813,8 +1821,8 @@ class BIP44_Wallet(BIP32_HD_Wallet):
     wallet_type = 'bip44'
 
     @classmethod
-    def account_derivation(self, account_id):
-        return self.root_derivation + account_id + "'"
+    def account_derivation(cls, account_id):
+        return cls.root_derivation + account_id + "'"
 
     def can_sign_xpubkey(self, x_pubkey):
         xpub, sequence = BIP32_Account.parse_xpubkey(x_pubkey)
@@ -1868,7 +1876,7 @@ class Multisig_Wallet(BIP32_RD_Wallet, Mnemonic):
     root_derivation = "m/"
 
     def __init__(self, storage):
-        BIP32_Wallet.__init__(self, storage)
+        BIP32_RD_Wallet.__init__(self, storage)
         self.wallet_type = storage.get('wallet_type')
         self.m, self.n = Wallet.multisig_type(self.wallet_type)
 
@@ -1915,7 +1923,7 @@ class Wallet(object):
     This class is actually a factory that will return a wallet of the correct
     type when passed a WalletStorage instance."""
 
-    def __new__(self, storage):
+    def __new__(cls, storage):
         seed_version = storage.get('seed_version')
         if not seed_version:
             seed_version = NEW_SEED_VERSION
@@ -1926,7 +1934,8 @@ class Wallet(object):
             if seed_version in [5, 7, 8, 9, 10]:
                 msg += "\n\nTo open this wallet, try 'git checkout seed_v%d'" % seed_version
             if seed_version == 6:
-                # version 1.9.8 created v6 wallets when an incorrect seed was entered in the restore dialog
+                # version 1.9.8 created v6 wallets when an incorrect seed was entered in the
+                # restore dialog
                 msg += '\n\nThis file was created because of a bug in version 1.9.8.'
                 if storage.get('master_public_keys') is None and storage.get(
                         'master_private_keys') is None and storage.get('imported_keys') is None:
@@ -1934,7 +1943,8 @@ class Wallet(object):
                     msg += "\nIt does not contain any keys, and can safely be removed."
                 else:
                     # creation was complete if lbryum was run from source
-                    msg += "\nPlease open this file with Electrum 1.9.8, and move your coins to a new wallet."
+                    msg += "\nPlease open this file with Electrum 1.9.8, and move your coins " \
+                           "to a new wallet."
             raise BaseException(msg)
 
         wallet_type = storage.get('wallet_type')

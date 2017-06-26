@@ -104,14 +104,14 @@ class SimpleConfig(object):
         updated = False
         for old_key, new_key in keypairs.iteritems():
             if old_key in config:
-                if not new_key in config:
+                if new_key not in config:
                     config[new_key] = config[old_key]
                 del config[old_key]
                 updated = True
         return updated
 
     def fixup_keys(self, keypairs):
-        '''Migrate old key names to new ones'''
+        """Migrate old key names to new ones"""
         self.fixup_config_keys(self.cmdline_options, keypairs)
         self.fixup_config_keys(self.system_config, keypairs)
         if self.fixup_config_keys(self.user_config, keypairs):
@@ -143,7 +143,7 @@ class SimpleConfig(object):
         return out if out is not NULL else default
 
     def is_modifiable(self, key):
-        return not key in self.cmdline_options
+        return key not in self.cmdline_options
 
     def save_user_config(self):
         if not self.path:
@@ -222,6 +222,6 @@ def read_user_config(path):
             result = ast.literal_eval(data)
         except Exception:
             raise Exception('Failed to parse config file {}'.format(config_path))
-    if not type(result) is dict:
+    if not isinstance(result, dict):
         raise Exception('User config must be a dictionary')
     return result

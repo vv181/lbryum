@@ -69,7 +69,7 @@ def format_lbrycrd_keys(obj, raw_claim=None):
             elif key == 'in claim trie':
                 new_key = 'in_claim_trie'
             elif key == 'value' and raw_claim:
-                if isinstance(val, unicode) or isinstance(val, str):
+                if isinstance(val, (unicode, str)):
                     try:
                         val = val.decode('hex')
                     except ValueError:
@@ -83,7 +83,7 @@ def format_lbrycrd_keys(obj, raw_claim=None):
             if new_key != key:
                 obj[new_key] = obj[key]
                 del obj[key]
-            if isinstance(val, list) or isinstance(val, dict):
+            if isinstance(val, (list, dict)):
                 obj[new_key] = format_lbrycrd_keys(val, raw_claim=raw_claim)
 
     elif isinstance(obj, list):
@@ -101,14 +101,14 @@ def format_amount_value(obj):
             elif k == 'supports' and isinstance(v, list):
                 obj[k] = [{'txid': txid, 'nout': nout, 'amount': float(amount) / float(COIN)}
                           for (txid, nout, amount) in v]
-            elif isinstance(v, list) or isinstance(v, dict):
+            elif isinstance(v, (list, dict)):
                 obj[k] = format_amount_value(v)
     elif isinstance(obj, list):
         obj = [format_amount_value(o) for o in obj]
     return obj
 
 
-class Command:
+class Command(object):
     def __init__(self, func, s):
         self.name = func.__name__
         self.requires_network = 'n' in s
@@ -143,7 +143,7 @@ def command(s):
     return decorator
 
 
-class Commands:
+class Commands(object):
     def __init__(self, config, wallet, network, callback=None, password=None, new_password=None):
         self.config = config
         self.wallet = wallet
@@ -319,7 +319,11 @@ class Commands:
 
     @command('wp')
     def getprivatekeys(self, address):
-        """Get private keys of addresses. You may pass a single wallet address, or a list of wallet addresses."""
+        """
+        Get private keys of addresses. You may pass a single wallet address,
+        or a list of wallet addresses.
+        """
+
         is_list = type(address) is list
         domain = address if is_list else [address]
         out = [self.wallet.get_private_key(address, self._password) for address in domain]
@@ -333,7 +337,8 @@ class Commands:
     @command('')
     def dumpprivkeys(self):
         """Deprecated."""
-        return "This command is deprecated. Use a pipe instead: 'lbryum listaddresses | lbryum getprivatekeys - '"
+        return "This command is deprecated. Use a pipe instead: " \
+               "'lbryum listaddresses | lbryum getprivatekeys - '"
 
     @command('')
     def validateaddress(self, address):
@@ -480,13 +485,14 @@ class Commands:
                     output = (TYPE_ADDRESS, address, amount)
                     dummy_tx = Transaction.from_io(inputs, [output])
                     fee_per_kb = self.wallet.fee_per_kb(self.config)
-                    fee = dummy_tx.estimated_fee(fee_per_kb)
+                    fee = dummy_tx.estimated_fee(self.wallet.relayfee(), fee_per_kb)
                 amount -= fee
             else:
                 amount = int(COIN * Decimal(amount))
             txout_type = TYPE_ADDRESS
             val = address
-            if claim_name is not None and claim_val is not None and claim_id is not None and abandon_txid is not None:
+            if claim_name is not None and claim_val is not None and claim_id is not None\
+                    and abandon_txid is not None:
                 assert len(outputs) == 1
                 txout_type |= TYPE_UPDATE
                 val = ((claim_name, claim_id, claim_val), val)
@@ -633,7 +639,11 @@ class Commands:
     @command('w')
     def listaddresses(self, receiving=False, change=False, show_labels=False, frozen=False,
                       unused=False, funded=False, show_balance=False):
-        """List wallet addresses. Returns the list of all addresses in your wallet. Use optional arguments to filter the results."""
+        """
+        List wallet addresses. Returns the list of all addresses in your wallet.
+        Use optional arguments to filter the results.
+        """
+
         out = []
         for addr in self.wallet.addresses(True):
             if frozen and not self.wallet.is_frozen(addr):
@@ -811,8 +821,8 @@ class Commands:
                                                        effective_amount, claim_sequence,
                                                        claim_address, supports)
                             return {'error': 'name in proof did not match requested name'}
-                        return {'error': 'invalid nOut: %d (let(outputs): %d' % (
-                        nOut, len(tx['outputs']))}
+                        outputs = len(tx['outputs'])
+                        return {'error': 'invalid nOut: %d (let(outputs): %d' % (nOut, outputs)}
                     return {'error': "computed txid did not match given transaction: %s vs %s" %
                                      (computed_txhash, result['proof']['txhash'])
                             }
@@ -1332,8 +1342,9 @@ class Commands:
         # relay fee will default to 5000
         # fee is max(relay_fee, size is fee_per_kb * esimated_size)
         # will be roughly 10,000 deweys (0.0001 lbc), standard abandon should be about 200 bytes
-        # this is assuming config is not set to dynamic, which in case it will get fees from lbrycrd's
-        # fee estimation algorithm
+        # this is assuming config is not set to dynamic, which in case it will get fees from
+        # lbrycrds fee estimation algorithm
+
         size = dummy_tx.estimated_size()
         fee = Transaction.fee_for_size(self.wallet.relayfee(), self.wallet.fee_per_kb(self.config),
                                        size)
@@ -1455,7 +1466,7 @@ class Commands:
         for i, output in enumerate(tx._outputs):
             if output[0] & TYPE_CLAIM:
                 nout = i
-        assert (nout is not None)
+        assert nout is not None
 
         claimid = encode_claim_id_hex(claim_id_hash(rev_hex(tx.hash()).decode('hex'), nout))
         return {"success": True, "txid": tx.hash(), "nout": nout, "tx": str(tx),
@@ -1809,10 +1820,11 @@ class Commands:
             ]
             # add the change utxos to output
             for output in dummy_tx._outputs:
-                if not (output[0] & TYPE_UPDATE):
+                if not output[0] & TYPE_UPDATE:
                     outputs.append(output)
 
-        # amount is less than the original bid, we need to put remainder minus fees in a change address
+        # amount is less than the original bid,
+        # we need to put remainder minus fees in a change address
         elif amount < txout_value:
 
             dummy_outputs = [
@@ -1831,7 +1843,8 @@ class Commands:
             if fee > txout_value - amount:
                 return {
                     'success': False,
-                    'reason': 'Fee will be greater than change amount, use amount=None to expend change as fee'
+                    'reason': 'Fee will be greater than change amount, use amount=None to expend '
+                              'change as fee'
                 }
 
             outputs = [
@@ -1902,8 +1915,9 @@ class Commands:
         # create outputs
         outputs = [(TYPE_ADDRESS, return_addr, txout_value)]
         # fee will be roughly 10,000 deweys (0.0001 lbc), standard abandon should be about 200 bytes
-        # this is assuming config is not set to dynamic, which in case it will get fees from lbrycrd's
-        # fee estimation algorithm
+        # this is assuming config is not set to dynamic, which in case it will get fees from
+        # lbrycrd's fee estimation algorithm
+
         fee = self._calculate_fee(inputs, outputs, tx_fee)
         if fee > txout_value:
             return {'success': False, 'reason': 'transaction fee exceeds amount to abandon'}
@@ -1938,7 +1952,8 @@ param_descriptions = {
     'requested_amount': 'Requested amount (in BTC).',
     'outputs': 'list of ["address", amount]',
     'exclude_claimtrietx': 'Exclude claimtrie transactions.',
-    'set_default_certificate': 'Set new certificate as default signer even if there is already a default certificate',
+    'set_default_certificate': 'Set new certificate as default signer even if there is already a '
+                               'default certificate',
 }
 
 command_options = {
@@ -1953,9 +1968,12 @@ command_options = {
     'nocheck': (None, "--nocheck", "Do not verify aliases"),
     'tx_fee': ("-f", "--fee", "Transaction fee (in BTC)"),
     'from_addr': ("-F", "--from",
-                  "Source address. If it isn't in the wallet, it will ask for the private key unless supplied in the format public_key:private_key. It's not saved in the wallet."),
+                  "Source address. If it isn't in the wallet, it will ask for the private key "
+                  "unless supplied in the format public_key:private_key. It's not saved in the "
+                  "wallet."),
     'change_addr': ("-c", "--change",
-                    "Change address. Default is a spare address, or the source address if it's not in the wallet"),
+                    "Change address. Default is a spare address, or the source address if it's "
+                    "not in the wallet"),
     'nbits': (None, "--nbits", "Number of bits of entropy"),
     'entropy': (None, "--entropy", "Custom entropy"),
     'language': ("-L", "--lang", "Default language for wordlist"),
@@ -1966,14 +1984,15 @@ command_options = {
     'account': (None, "--account", "Account"),
     'memo': ("-m", "--memo", "Description of the request"),
     'expiration': (None, "--expiration", "Time in seconds"),
-    'force': (
-    None, "--force", "Create new address beyong gap limit, if no more address is available."),
+    'force': (None, "--force", "Create new address beyong gap limit, if no more address is "
+                               "available."),
     'pending': (None, "--pending", "Show only pending requests."),
     'expired': (None, "--expired", "Show only expired requests."),
     'paid': (None, "--paid", "Show only paid requests."),
     'exclude_claimtrietx': (None, "--exclude_claimtrietx", "Exclude claimtrie transactions"),
     'return_addr': (None, "--return_addr",
-                    "Return address where amounts in abandoned claimtrie transactions are returned."),
+                    "Return address where amounts in abandoned claimtrie transactions are "
+                    "returned."),
     'claim_addr': (None, "--claim_addr", "Address where claims are sent."),
     'broadcast': (None, "--broadcast", "if True, broadcast the transaction"),
     'raw': ("-r", "--raw", "if True, don't decode claim values"),
@@ -1982,12 +2001,13 @@ command_options = {
     'claim_id': (None, "--claim_id", "claim id"),
     'txid': ("-t", "--txid", "txid"),
     'nout': ("-n", "--nout", "nout"),
-    'certificate_id': (
-    None, "--certificate_id", "claim id of a certificate that can be used for signing"),
-    'skip_validate_schema': (
-    None, "--ignore_schema", "Validate the claim conforms with lbry schema"),
+    'certificate_id': (None, "--certificate_id", "claim id of a certificate that can be used "
+                                                 "for signing"),
+    'skip_validate_schema': (None, "--ignore_schema", "Validate the claim conforms with lbry "
+                                                      "schema"),
     'set_default_certificate': (None, "--set_default_certificate",
-                                "Set the new certificate as the default, even if there already is one"),
+                                "Set the new certificate as the default, even if there already is "
+                                "one"),
     'amount': ("-a", "--amount", "amount to use in updated name claim"),
     'include_abandoned': (None, "--include_abandoned", "include abandoned claims"),
     'include_supports': (None, "--include_supports", "include supports"),
@@ -1998,8 +2018,12 @@ command_options = {
     'timeout': (None, '--timeout', 'timeout')
 }
 
-# don't use floats because of rounding errors
-json_loads = lambda x: json.loads(x, parse_float=lambda x: str(Decimal(x)))
+
+def json_loads(x):
+    """don't use floats because of rounding errors"""
+    return json.loads(x, parse_float=lambda x: str(Decimal(x)))
+
+
 arg_types = {
     'num': int,
     'nbits': int,
@@ -2017,17 +2041,23 @@ config_variables = {
     'addrequest': {
         'requests_dir': 'directory where a bip70 file will be written.',
         'ssl_privkey': 'Path to your SSL private key, needed to sign the request.',
-        'ssl_chain': 'Chain of SSL certificates, needed for signed requests. Put your certificate at the top and the root CA at the end',
-        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://lbryum.org/\')\"',
+        'ssl_chain': 'Chain of SSL certificates, needed for signed requests. Put your certificate '
+                     'at the top and the root CA at the end',
+        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of '
+                       'bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://lbryum.org/\')\"',
     },
     'listrequests': {
-        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://lbryum.org/\')\"',
+        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of '
+                       'bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://lbryum.org/\')\"',
     }
 }
 
 
 def set_default_subparser(self, name, args=None):
-    """see http://stackoverflow.com/questions/5176691/argparse-how-to-specify-a-default-subcommand"""
+    """
+    see http://stackoverflow.com/questions/5176691/argparse-how-to-specify-a-default-subcommand
+    """
+
     subparser_found = False
     for arg in sys.argv[1:]:
         if arg in ['-h', '--help']:  # global help if no subparser
@@ -2055,7 +2085,8 @@ def add_network_options(parser):
     parser.add_argument("-1", "--oneserver", action="store_true", dest="oneserver", default=False,
                         help="connect to one server only")
     parser.add_argument("-s", "--server", dest="server", default=None,
-                        help="set server host:port:protocol, where protocol is either t (tcp) or s (ssl)")
+                        help="set server host:port:protocol, where protocol is either t (tcp) or"
+                             " s (ssl)")
     parser.add_argument("-p", "--proxy", dest="proxy", default=None,
                         help="set proxy [type:]host[:port], where type is socks4,socks5 or http")
 

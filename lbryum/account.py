@@ -156,7 +156,7 @@ class BIP32_Account(Account):
         return [self.xpub]
 
     @classmethod
-    def derive_pubkey_from_xpub(self, xpub, for_change, n):
+    def derive_pubkey_from_xpub(cls, xpub, for_change, n):
         _, _, _, c, cK = deserialize_xkey(xpub)
         for i in [for_change, n]:
             cK, c = CKD_pub(cK, c, i)
@@ -204,7 +204,7 @@ class BIP32_Account(Account):
         return map(lambda xpub: 'ff' + DecodeBase58Check(xpub).encode('hex') + s, xpubs)
 
     @classmethod
-    def parse_xpubkey(self, pubkey):
+    def parse_xpubkey(cls, pubkey):
         assert is_extended_pubkey(pubkey)
         pk = pubkey.decode('hex')
         pk = pk[1:]

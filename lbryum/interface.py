@@ -18,6 +18,11 @@ else:
 log = logging.getLogger(__name__)
 
 
+def make_dict(args):
+    m, p, i = args
+    return {'method': m, 'params': p, 'id': i}
+
+
 def Connection(server, queue, config_path):
     """Makes asynchronous connections to a remote lbryum server.
     Returns the running thread that is making the connection.
@@ -27,7 +32,7 @@ def Connection(server, queue, config_path):
     connection failed.
     """
     host, port, protocol = server.split(':')
-    if not protocol in 'st':
+    if protocol not in 'st':
         raise Exception('Unknown protocol: %s' % protocol)
     c = TcpConnection(server, queue, config_path)
     c.start()
@@ -64,8 +69,6 @@ class TcpConnection(threading.Thread, PrintError):
             except BaseException as e:
                 log.exception('Failed to connect to %s', res)
                 continue
-        else:
-            self.print_error("failed to connect", str(e))
 
     def get_socket(self):
         s = self.get_simple_socket()
@@ -131,12 +134,11 @@ class Interface(PrintError):
 
     def send_requests(self):
         '''Sends all queued requests.  Returns False on failure.'''
-        make_dict = lambda (m, p, i): {'method': m, 'params': p, 'id': i}
         wire_requests = map(make_dict, self.unsent_requests)
         try:
             self.pipe.send_all(wire_requests)
-        except socket.error, e:
-            self.print_error("socket error:", e)
+        except socket.error:
+            log.exception("socket error")
             return False
         for request in self.unsent_requests:
             log.debug("--> %s", request)
@@ -156,9 +158,9 @@ class Interface(PrintError):
 
     def has_timed_out(self):
         '''Returns True if the interface has timed out.'''
-        if (self.unanswered_requests and time.time() - self.request_time > 10
-            and self.pipe.idle_time() > 10):
-            self.print_error("timeout", len(self.unanswered_requests))
+        request_time = time.time() - self.request_time
+        if self.unanswered_requests and request_time > 10 and self.pipe.idle_time() > 10:
+            log.info("timeout %i", len(self.unanswered_requests))
             return True
 
         return False

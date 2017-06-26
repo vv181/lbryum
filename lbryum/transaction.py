@@ -151,7 +151,11 @@ class EnumException(exceptions.Exception):
     pass
 
 
-class Enumeration:
+# enum-like type
+# From the Python Cookbook, downloaded from http://code.activestate.com/recipes/67107/
+
+
+class Enumeration(object):
     def __init__(self, name, enumList):
         self.__doc__ = name
         lookup = {}
@@ -160,11 +164,11 @@ class Enumeration:
         uniqueNames = []
         uniqueValues = []
         for x in enumList:
-            if type(x) == types.TupleType:
+            if isinstance(x, types.TupleType):
                 x, i = x
-            if type(x) != types.StringType:
+            if not isinstance(x, types.StringType):
                 raise EnumException, "enum name is not a string: " + x
-            if type(i) != types.IntType:
+            if not isinstance(i, types.IntType):
                 raise EnumException, "enum value is not an integer: " + i
             if x in uniqueNames:
                 raise EnumException, "enum name is not unique: " + x
@@ -179,8 +183,8 @@ class Enumeration:
         self.reverseLookup = reverseLookup
 
     def __getattr__(self, attr):
-        if not self.lookup.has_key(attr):
-            raise AttributeError
+        if attr not in self.lookup:
+            raise AttributeError(attr)
         return self.lookup[attr]
 
     def whatis(self, value):
@@ -266,7 +270,8 @@ def script_GetOpName(opcode):
 def decode_script(bytes):
     result = ''
     for (opcode, vch, i) in script_GetOp(bytes):
-        if len(result) > 0: result += " "
+        if len(result) > 0:
+            result += " "
         if opcode <= opcodes.OP_PUSHDATA4:
             result += "%d:" % (opcode,)
             result += short_hex(vch)
@@ -277,10 +282,11 @@ def decode_script(bytes):
 
 def match_decoded(decoded, to_match):
     if len(decoded) != len(to_match):
-        return False;
-    for i in range(len(decoded)):
-        if to_match[i] == opcodes.OP_PUSHDATA4 and opcodes.OP_PUSHDATA4 >= decoded[i][0] > 0:
-            continue  # Opcodes below OP_PUSHDATA4 all just push data onto stack, and are equivalent.
+        return False
+    for i, d in enumerate(decoded):
+        if to_match[i] == opcodes.OP_PUSHDATA4 and opcodes.OP_PUSHDATA4 >= d[0] > 0:
+            # Opcodes below OP_PUSHDATA4 all just push data onto stack, # and are equivalent.
+            continue
         if to_match[i] != decoded[i][0]:
             return False
     return True
@@ -432,11 +438,11 @@ def decode_claim_script(decoded_script):
     value = None
     claim_id = None
     claim = None
-    if not (0 <= decoded_script[op][0] <= opcodes.OP_PUSHDATA4):
+    if not 0 <= decoded_script[op][0] <= opcodes.OP_PUSHDATA4:
         return False
     name = decoded_script[op][1]
     op += 1
-    if not (0 <= decoded_script[op][0] <= opcodes.OP_PUSHDATA4):
+    if not 0 <= decoded_script[op][0] <= opcodes.OP_PUSHDATA4:
         return False
     if decoded_script[0][0] in [
         opcodes.OP_SUPPORT_CLAIM,
@@ -456,8 +462,8 @@ def decode_claim_script(decoded_script):
     op += 1
     if decoded_script[op][0] != opcodes.OP_DROP and decoded_script[0][0] == opcodes.OP_CLAIM_NAME:
         return False
-    elif decoded_script[op][0] != opcodes.OP_2DROP and decoded_script[0][
-        0] == opcodes.OP_UPDATE_CLAIM:
+    elif decoded_script[op][0] != opcodes.OP_2DROP and decoded_script[0][0] == \
+            opcodes.OP_UPDATE_CLAIM:
         return False
     op += 1
     if decoded_script[0][0] == opcodes.OP_CLAIM_NAME:
@@ -573,7 +579,7 @@ def push_script(x):
     return op_push(len(x) / 2) + x
 
 
-class Transaction:
+class Transaction(object):
     def __str__(self):
         if self.raw is None:
             self.raw = self.serialize()
@@ -649,22 +655,22 @@ class Transaction:
         return d
 
     @classmethod
-    def from_io(klass, inputs, outputs, locktime=0):
-        self = klass(None)
+    def from_io(cls, inputs, outputs, locktime=0):
+        self = cls(None)
         self._inputs = inputs
         self._outputs = outputs
         self.locktime = locktime
         return self
 
     @classmethod
-    def sweep(klass, privkeys, network, to_address, fee):
+    def sweep(cls, privkeys, network, to_address, fee):
         inputs = []
         keypairs = {}
         for privkey in privkeys:
             pubkey = public_key_from_private_key(privkey)
             address = address_from_private_key(privkey)
             u = network.synchronous_get(('blockchain.address.listunspent', [address]))
-            pay_script = klass.pay_script(TYPE_ADDRESS, address)
+            pay_script = cls.pay_script(TYPE_ADDRESS, address)
             for item in u:
                 item['scriptPubKey'] = pay_script
                 item['redeemPubkey'] = pubkey
@@ -683,12 +689,12 @@ class Transaction:
 
         total = sum(i.get('value') for i in inputs) - fee
         outputs = [(TYPE_ADDRESS, to_address, total)]
-        self = klass.from_io(inputs, outputs)
+        self = cls.from_io(inputs, outputs)
         self.sign(keypairs)
         return self
 
     @classmethod
-    def multisig_script(klass, public_keys, m):
+    def multisig_script(cls, public_keys, m):
         n = len(public_keys)
         assert n <= 15
         assert m <= n
@@ -698,7 +704,7 @@ class Transaction:
         return op_m + ''.join(keylist) + op_n + 'ae'
 
     @classmethod
-    def pay_script(self, output_type, addr):
+    def pay_script(cls, output_type, addr):
         script = ''
         if output_type & TYPE_CLAIM:
             claim, addr = addr
@@ -736,13 +742,13 @@ class Transaction:
                 script += push_script(hash_160.encode('hex'))
                 script += '87'  # op_equal
             else:
-                raise
+                raise Exception("Unknown address type: %s" % addrtype)
         else:
-            raise
+            raise Exception("Unknown output type: %s" % output_type)
         return script
 
     @classmethod
-    def input_script(self, txin, i, for_sig):
+    def input_script(cls, txin, i, for_sig):
         # for_sig:
         #   -1   : do not sign, estimate length
         #   i>=0 : serialized tx for signing input i
@@ -778,7 +784,7 @@ class Transaction:
                 script += push_script(x_pubkey)
             else:
                 script = '00' + script  # put op_0 in front of script
-                redeem_script = self.multisig_script(pubkeys, num_sig)
+                redeem_script = cls.multisig_script(pubkeys, num_sig)
                 script += push_script(redeem_script)
 
         elif for_sig == i:
@@ -792,19 +798,19 @@ class Transaction:
             elif 'is_update' in txin and txin['is_update']:
                 script_type |= TYPE_UPDATE
                 address = ((txin['claim_name'], txin['claim_id'], txin['claim_value']), address)
-            script = txin['redeemScript'] if p2sh else self.pay_script(script_type, address)
+            script = txin['redeemScript'] if p2sh else cls.pay_script(script_type, address)
         else:
             script = ''
 
         return script
 
     @classmethod
-    def serialize_input(self, txin, i, for_sig):
+    def serialize_input(cls, txin, i, for_sig):
         # Prev hash and index
         s = txin['prevout_hash'].decode('hex')[::-1].encode('hex')
         s += int_to_hex(txin['prevout_n'], 4)
         # Script length, script, sequence
-        script = self.input_script(txin, i, for_sig)
+        script = cls.input_script(txin, i, for_sig)
         s += var_int(len(script) / 2)
         s += script
         s += "ffffffff"
@@ -861,7 +867,7 @@ class Transaction:
         return not any([x.get('sequence') < 0xffffffff - 1 for x in self.inputs()])
 
     @classmethod
-    def fee_for_size(self, relay_fee, fee_per_kb, size):
+    def fee_for_size(cls, relay_fee, fee_per_kb, size):
         '''Given a fee per kB in satoshis, and a tx size in bytes,
         returns the transaction fee.'''
         fee = int(fee_per_kb * size / 1000.)
@@ -875,9 +881,9 @@ class Transaction:
         return len(self.serialize(-1)) / 2  # ASCII hex string
 
     @classmethod
-    def estimated_input_size(self, txin):
+    def estimated_input_size(cls, txin):
         '''Return an estimated of serialized input size in bytes.'''
-        return len(self.serialize_input(txin, -1, -1)) / 2
+        return len(cls.serialize_input(txin, -1, -1)) / 2
 
     def estimated_fee(self, relay_fee, fee_per_kb):
         '''Return an estimated fee given a fee per kB in satoshis.'''
@@ -977,7 +983,7 @@ class Transaction:
 
     def has_address(self, addr):
         return (addr in self.get_output_addresses()) or (
-        addr in (tx.get("address") for tx in self.inputs()))
+            addr in (tx.get("address") for tx in self.inputs()))
 
     def as_dict(self):
         if self.raw is None:

@@ -69,7 +69,8 @@ CJK_INTERVALS = [
 def is_CJK(c):
     n = ord(c)
     for imin, imax, name in CJK_INTERVALS:
-        if imin <= n <= imax: return True
+        if imin <= n <= imax:
+            return True
     return False
 
 
@@ -83,8 +84,9 @@ def prepare_seed(seed):
     # normalize whitespaces
     seed = u' '.join(seed.split())
     # remove whitespaces between CJK
-    seed = u''.join([seed[i] for i in range(len(seed)) if not (
-    seed[i] in string.whitespace and is_CJK(seed[i - 1]) and is_CJK(seed[i + 1]))])
+    seed = u''.join([seed[i] for i in range(len(seed)) if not (seed[i] in string.whitespace
+                                                               and is_CJK(seed[i - 1])
+                                                               and is_CJK(seed[i + 1]))])
     return seed
 
 
@@ -117,7 +119,7 @@ class Mnemonic(object):
         log.info("wordlist has %d words", len(self.wordlist))
 
     @classmethod
-    def mnemonic_to_seed(self, mnemonic, passphrase):
+    def mnemonic_to_seed(cls, mnemonic, passphrase):
         PBKDF2_ROUNDS = 2048
         mnemonic = prepare_seed(mnemonic)
         return pbkdf2.PBKDF2(mnemonic, 'lbryum' + passphrase, iterations=PBKDF2_ROUNDS,

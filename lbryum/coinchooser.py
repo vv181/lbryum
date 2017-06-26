@@ -9,14 +9,16 @@ from lbryum.errors import NotEnoughFunds
 from lbryum.util import PrintError
 
 
-# A simple deterministic PRNG.  Used to deterministically shuffle a
-# set of coins - the same set of coins should produce the same output.
-# Although choosing UTXOs "randomly" we want it to be deterministic,
-# so if sending twice from the same UTXO set we choose the same UTXOs
-# to spend.  This prevents attacks on users by malicious or stale
-# servers.
+class PRNG(object):
+    """
+    A simple deterministic PRNG.  Used to deterministically shuffle a
+    set of coins - the same set of coins should produce the same output.
+    Although choosing UTXOs "randomly" we want it to be deterministic,
+    so if sending twice from the same UTXO set we choose the same UTXOs
+    to spend.  This prevents attacks on users by malicious or stale
+    servers.
+    """
 
-class PRNG:
     def __init__(self, seed):
         self.sha = sha256(seed)
         self.pool = bytearray()
@@ -190,7 +192,9 @@ class CoinChooserBase(PrintError):
 
         # This takes a count of change outputs and returns a tx fee;
         # each pay-to-bitcoin-address output serializes as 34 bytes
-        fee = lambda count: fee_estimator(tx_size + count * 34)
+        def fee(count):
+            return fee_estimator(tx_size + count * 34)
+
         change = self.change_outputs(tx, change_addrs, fee, dust_threshold)
         tx.add_outputs(change)
 
@@ -214,7 +218,9 @@ class CoinChooserOldestFirst(CoinChooserBase):
     def choose_buckets(self, buckets, sufficient_funds, penalty_func):
         '''Spend the oldest buckets first.'''
         # Unconfirmed coins are young, not old
-        adj_height = lambda height: 99999999 if height == 0 else height
+        def adj_height(height):
+            return 99999999 if height == 0 else height
+
         buckets.sort(key=lambda b: max(adj_height(coin['height'])
                                        for coin in b.coins))
         selected = []
@@ -222,11 +228,14 @@ class CoinChooserOldestFirst(CoinChooserBase):
             selected.append(bucket)
             if sufficient_funds(selected):
                 return strip_unneeded(selected, sufficient_funds)
-        else:
-            raise NotEnoughFunds()
+        raise NotEnoughFunds()
 
 
 class CoinChooserRandom(CoinChooserBase):
+    def keys(self, coins):
+        return [coin['prevout_hash'] + ':' + str(coin['prevout_n'])
+                for coin in coins]
+
     def bucket_candidates(self, buckets, sufficient_funds):
         '''Returns a list of bucket sets.'''
         candidates = set()
@@ -276,10 +285,6 @@ class CoinChooserPrivacy(CoinChooserRandom):
 
     def keys(self, coins):
         return [coin['address'] for coin in coins]
-
-    def penalty_func(self, buckets, tx):
-        '''Returns a penalty for a candidate set of buckets.'''
-        raise NotImplementedError
 
     def penalty_func(self, tx):
         min_change = min(o[2] for o in tx.outputs()) * 0.75

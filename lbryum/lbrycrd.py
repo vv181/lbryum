@@ -181,7 +181,8 @@ def PrivKeyToSecret(privkey):
 
 def SecretToASecret(secret, compressed=False, addrtype=0):
     vchIn = chr((addrtype + 128) & 255) + secret
-    if compressed: vchIn += '\01'
+    if compressed:
+        vchIn += '\01'
     return EncodeBase58Check(vchIn)
 
 
@@ -255,8 +256,8 @@ def is_private_key(key):
     except:
         return False
 
+# end pywallet functions
 
-########### end pywallet functions #######################
 
 def is_minikey(text):
     # Minikeys are typically 22 or 30 characters, but this routine
@@ -335,7 +336,7 @@ def ser_to_point(Aser):
 
 class MyVerifyingKey(ecdsa.VerifyingKey):
     @classmethod
-    def from_signature(klass, sig, recid, h, curve):
+    def from_signature(cls, sig, recid, h, curve):
         """ See http://www.secg.org/download/aid-780/sec1-v2.pdf, chapter 4.1.6 """
         curveFp = curve.curve
         G = curve.generator
@@ -356,7 +357,7 @@ class MyVerifyingKey(ecdsa.VerifyingKey):
         # 1.6 compute Q = r^-1 (sR - eG)
         inv_r = numbertheory.inverse_mod(r, order)
         Q = inv_r * (s * R + minus_e * G)
-        return klass.from_public_point(Q, curve)
+        return cls.from_public_point(Q, curve)
 
 
 class MySigningKey(ecdsa.SigningKey):
@@ -398,12 +399,12 @@ class EC_KEY(object):
                 self.verify_message(address, sig, message)
                 return sig
             except Exception:
+                log.exception("error: cannot sign message")
                 continue
-        else:
-            raise Exception("error: cannot sign message")
+        raise Exception("error: cannot sign message")
 
     @classmethod
-    def verify_message(self, address, sig, message):
+    def verify_message(cls, address, sig, message):
         if len(sig) != 65:
             raise Exception("Wrong encoding")
         nV = ord(sig[0])
@@ -426,10 +427,11 @@ class EC_KEY(object):
         if address != addr:
             raise Exception("Bad signature")
 
-    # ECIES encryption/decryption methods; AES-128-CBC with PKCS7 is used as the cipher; hmac-sha256 is used as the mac
+    # ECIES encryption/decryption methods; AES-128-CBC with PKCS7 is used as the cipher;
+    # hmac-sha256 is used as the mac
 
     @classmethod
-    def encrypt_message(self, message, pubkey):
+    def encrypt_message(cls, message, pubkey):
 
         pk = ser_to_point(pubkey)
         if not ecdsa.ecdsa.point_is_valid(generator_secp256k1, pk.x(), pk.y()):
@@ -481,9 +483,12 @@ class EC_KEY(object):
         return aes_decrypt_with_iv(key_e, iv, ciphertext)
 
 
-###################################### BIP32 ##############################
+# BIP32
 
-random_seed = lambda n: "%032x" % ecdsa.util.randrange(pow(2, n))
+def random_seed(n):
+    return "%032x" % ecdsa.util.randrange(pow(2, n))
+
+
 BIP32_PRIME = 0x80000000
 
 
@@ -527,7 +532,8 @@ def _CKD_priv(k, c, s, is_prime):
 # This function allows us to find the nth public key, as long as n is
 #  non-negative. If n is negative, we need the master private key to find it.
 def CKD_pub(cK, c, n):
-    if n & BIP32_PRIME: raise
+    if n & BIP32_PRIME:
+        raise Exception("CKD pub error")
     return _CKD_pub(cK, c, rev_hex(int_to_hex(n, 4)).decode('hex'))
 
 
@@ -637,7 +643,8 @@ def bip32_private_derivation(xprv, branch, sequence, testnet=False):
     depth, fingerprint, child_number, c, k = deserialize_xkey(xprv)
     sequence = sequence[len(branch):]
     for n in sequence.split('/'):
-        if n == '': continue
+        if n == '':
+            continue
         i = int(n[:-1]) + BIP32_PRIME if n[-1] == "'" else int(n)
         parent_k = k
         k, c = CKD_priv(k, c, i)
@@ -658,7 +665,8 @@ def bip32_public_derivation(xpub, branch, sequence, testnet=False):
     assert sequence.startswith(branch)
     sequence = sequence[len(branch):]
     for n in sequence.split('/'):
-        if n == '': continue
+        if n == '':
+            continue
         i = int(n)
         parent_cK = cK
         cK, c = CKD_pub(cK, c, i)
