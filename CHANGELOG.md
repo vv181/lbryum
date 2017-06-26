@@ -24,8 +24,16 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Removed
-  *
-  *
+  * Removed payment requests
+  * Removed x509
+  * Removed old mneumonic
+  * Removed old wallet and account
+  * Removed rsakey.py
+  * Removed ripemd.py
+  * Removed dnssec.py
+  * Removed wizard
+  * Removed i18n
+  * Removed socket and raw_input patches
 
 ## [3.0.1] - 2017-06-21
 ### Changed
