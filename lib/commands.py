@@ -2094,21 +2094,6 @@ def get_parser():
         parents=[parent_parser],
         epilog="Run 'lbryum help <command>' to see the help for a command")
     subparsers = parser.add_subparsers(dest='cmd', metavar='<command>')
-    # gui
-    parser_gui = subparsers.add_parser('gui', parents=[parent_parser],
-                                       description="Run Electrum's Graphical User Interface.",
-                                       help="Run GUI (default)")
-    parser_gui.add_argument("url", nargs='?', default=None, help="bitcoin URI (or bip70 file)")
-    # parser_gui.set_defaults(func=run_gui)
-    parser_gui.add_argument("-g", "--gui", dest="gui", help="select graphical user interface",
-                            choices=['qt', 'kivy', 'text', 'stdio'])
-    parser_gui.add_argument("-o", "--offline", action="store_true", dest="offline", default=False,
-                            help="Run offline")
-    parser_gui.add_argument("-m", action="store_true", dest="hide_gui", default=False,
-                            help="hide GUI on startup")
-    parser_gui.add_argument("-L", "--lang", dest="language", default=None,
-                            help="default language used in GUI")
-    add_network_options(parser_gui)
     # daemon
     parser_daemon = subparsers.add_parser('daemon', parents=[parent_parser], help="Run Daemon")
     parser_daemon.add_argument("subcommand", choices=['start', 'status', 'stop'])
