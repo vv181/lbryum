@@ -538,7 +538,7 @@ class Network(DaemonThread):
                     # check cached response for subscriptions
                     r = self.sub_cache.get(k)
                 if r is not None:
-                    util.print_error("cache hit", k)
+                    log.warning("cache hit: %s", k)
                     callback(r)
                 else:
                     message_id = self.queue_request(method, params)
@@ -666,7 +666,7 @@ class Network(DaemonThread):
                         self.switch_lagging_interface(interface.server)
                         self.notify('updated')
                     else:
-                        interface.print_error("header didn't connect, dismissing interface")
+                        log.warning("header didn't connect, dismissing interface")
                         interface.close()
                 else:
                     self.request_header(interface, data, next_height)
@@ -701,7 +701,7 @@ class Network(DaemonThread):
                 if not self.bc_request_headers(interface, data):
                     continue
             elif time.time() - req_time > 30:
-                interface.print_error("blockchain request timed out")
+                log.error("blockchain request timed out")
                 self.connection_down(interface.server)
                 continue
             # Put updated request state back at head of deque

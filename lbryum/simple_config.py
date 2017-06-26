@@ -97,7 +97,7 @@ class SimpleConfig(object):
         if not os.path.exists(path):
             os.mkdir(path)
 
-        print_error("lbryum directory", path)
+        log.info("lbryum directory: %s", path)
         return path
 
     def fixup_config_keys(self, config, keypairs):
@@ -119,7 +119,7 @@ class SimpleConfig(object):
 
     def set_key(self, key, value, save=True):
         if not self.is_modifiable(key):
-            print_stderr("Warning: not changing config key '%s' set on the command line" % key)
+            log.error("Warning: not changing config key '%s' set on the command line", key)
             return
 
         with self.lock:

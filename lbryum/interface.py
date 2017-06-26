@@ -52,7 +52,7 @@ class TcpConnection(threading.Thread, PrintError):
         try:
             l = socket.getaddrinfo(self.host, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM)
         except socket.gaierror:
-            self.print_error("cannot resolve hostname")
+            log.error("cannot resolve hostname")
             return
         for res in l:
             try:
@@ -77,7 +77,7 @@ class TcpConnection(threading.Thread, PrintError):
     def run(self):
         socket = self.get_socket()
         if socket:
-            self.print_error("connected")
+            log.info("connected to %s", self.server)
         self.queue.put((self.server, socket))
 
 
@@ -118,7 +118,7 @@ class Interface(PrintError):
             if not self.closed_remotely:
                 self.socket.shutdown(socket.SHUT_RDWR)
         except socket.error as err:
-            self.print_error("Error closing interface: %s (%s)" % (str(type(err)), err))
+            log.error("Error closing interface: %s (%s)", str(type(err)), err)
         finally:
             self.socket.close()
 
@@ -139,8 +139,7 @@ class Interface(PrintError):
             self.print_error("socket error:", e)
             return False
         for request in self.unsent_requests:
-            if self.debug:
-                self.print_error("-->", request)
+            log.debug("--> %s", request)
             self.unanswered_requests[request[2]] = request
         self.unsent_requests = []
         return True
@@ -182,10 +181,9 @@ class Interface(PrintError):
             if response is None:
                 responses.append((None, None))
                 self.closed_remotely = True
-                self.print_error("connection closed remotely")
+                log.warning("connection closed remotely")
                 break
-            if self.debug:
-                self.print_error("<--", response)
+            log.debug("<-- %s", response)
             wire_id = response.get('id', None)
             if wire_id is None:  # Notification
                 responses.append((None, response))
@@ -194,7 +192,7 @@ class Interface(PrintError):
                 if request:
                     responses.append((request, response))
                 else:
-                    self.print_error("unknown wire ID", wire_id)
+                    log.error("unknown wire ID: %s", wire_id)
                     responses.append((None, None))  # Signal
                     break
 

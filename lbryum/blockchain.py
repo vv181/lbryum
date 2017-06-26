@@ -48,7 +48,7 @@ class LbryCrd(PrintError):
     def init(self):
         self.init_headers_file()
         self.set_local_height()
-        self.print_error("%d blocks" % self.local_height)
+        log.debug("%d blocks" % self.local_height)
 
     def verify_header(self, header, prev_header, bits, target):
         prev_hash = self.hash_header(prev_header)
@@ -132,9 +132,8 @@ class LbryCrd(PrintError):
         if os.path.exists(filename):
             return
         try:
-            import urllib, socket
             socket.setdefaulttimeout(30)
-            self.print_error("downloading ", self.headers_url)
+            log.info("downloading headers from %s", self.headers_url)
             self.retrieving_headers = True
             try:
                 urllib.urlretrieve(self.headers_url, filename)
@@ -142,9 +141,9 @@ class LbryCrd(PrintError):
                 raise
             finally:
                 self.retrieving_headers = False
-            self.print_error("done.")
+            log.info("done.")
         except Exception:
-            self.print_error("download failed. creating file", filename)
+            log.warning("download failed. creating empty headers file: %s", filename)
             open(filename, 'wb+').close()
 
     def save_chunk(self, index, chunk):
@@ -235,12 +234,12 @@ class LbryCrd(PrintError):
         chain.reverse()
         try:
             self.verify_chain(chain)
-            self.print_error("connected at height:", height)
+            log.debug("connected at height: %i", height)
             for header in chain:
                 self.save_header(header)
             return True
         except BaseException as e:
-            self.print_error(str(e))
+            log.exception("error saving chain")
             return False
 
     def need_previous(self, header):
@@ -253,18 +252,18 @@ class LbryCrd(PrintError):
         # Does it connect to my chain?
         prev_hash = self.hash_header(previous_header)
         if prev_hash != header.get('prev_block_hash'):
-            self.print_error("reorg")
+            log.info("reorg")
             return True
 
     def connect_chunk(self, idx, hexdata):
         try:
             data = hexdata.decode('hex')
             self.verify_chunk(idx, data)
-            self.print_error("validated chunk %d" % idx)
+            log.info("validated chunk %i", idx)
             self.save_chunk(idx, data)
             return idx + 1
         except BaseException as e:
-            self.print_error('verify_chunk failed', str(e))
+            log.error('verify_chunk failed: %s', str(e))
             return idx - 1
 
     def check_bits(self, bits):

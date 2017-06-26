@@ -44,7 +44,7 @@ class WalletStorage(PrintError):
         self.path = path
         self.file_exists = False
         self.modified = False
-        self.print_error("wallet path", self.path)
+        log.info("wallet path: %s", self.path)
         if self.path:
             self.read(self.path)
 
@@ -873,7 +873,7 @@ class Abstract_Wallet(PrintError):
                     dd[addr].append((ser, v))
             # save
             self.transactions[tx_hash] = tx
-            print_error("Saved")
+            log.info("Saved")
 
     def remove_transaction(self, tx_hash):
         with self.transaction_lock:
