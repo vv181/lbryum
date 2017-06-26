@@ -6,6 +6,7 @@ language: python
 branches:
   only: 
     - master
+    - refactor-packaging
 
 python:
     - "2.7"
