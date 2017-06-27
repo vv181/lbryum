@@ -1,26 +1,7 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2013 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-import lbrycrd
-from lbrycrd import *
-from i18n import _
-from transaction import Transaction, is_extended_pubkey
-from util import print_msg, InvalidPassword
+from lbryum import lbrycrd
+from lbryum.lbrycrd import *
+from lbryum.transaction import Transaction, is_extended_pubkey
+from lbryum.util import InvalidPassword
 
 
 class Account(object):
@@ -70,7 +51,7 @@ class Account(object):
         return True
 
     def get_name(self, k):
-        return _('Main account')
+        return 'Main account'
 
     def redeem_script(self, for_change, n):
         return None
@@ -142,7 +123,7 @@ class ImportedAccount(Account):
         return {'imported': self.keypairs}
 
     def get_name(self, k):
-        return _('Imported keys')
+        return 'Imported keys'
 
     def update_password(self, old_password, new_password):
         for k, v in self.keypairs.items():
@@ -150,98 +131,6 @@ class ImportedAccount(Account):
             b = pw_decode(a, old_password)
             c = pw_encode(b, new_password)
             self.keypairs[k] = (pubkey, c)
-
-
-class OldAccount(Account):
-    """  Privatekey(type,n) = Master_private_key + H(n|S|type)  """
-
-    def __init__(self, v):
-        Account.__init__(self, v)
-        self.mpk = v['mpk'].decode('hex')
-
-    @classmethod
-    def mpk_from_seed(klass, seed):
-        secexp = klass.stretch_key(seed)
-        master_private_key = ecdsa.SigningKey.from_secret_exponent(secexp, curve=SECP256k1)
-        master_public_key = master_private_key.get_verifying_key().to_string().encode('hex')
-        return master_public_key
-
-    @classmethod
-    def stretch_key(self, seed):
-        oldseed = seed
-        for i in range(100000):
-            seed = hashlib.sha256(seed + oldseed).digest()
-        return string_to_number(seed)
-
-    @classmethod
-    def get_sequence(self, mpk, for_change, n):
-        return string_to_number(Hash("%d:%d:" % (n, for_change) + mpk))
-
-    def get_address(self, for_change, n):
-        pubkey = self.get_pubkey(for_change, n)
-        address = public_key_to_bc_address(pubkey.decode('hex'))
-        return address
-
-    @classmethod
-    def get_pubkey_from_mpk(self, mpk, for_change, n):
-        z = self.get_sequence(mpk, for_change, n)
-        master_public_key = ecdsa.VerifyingKey.from_string(mpk, curve=SECP256k1)
-        pubkey_point = master_public_key.pubkey.point + z * SECP256k1.generator
-        public_key2 = ecdsa.VerifyingKey.from_public_point(pubkey_point, curve=SECP256k1)
-        return '04' + public_key2.to_string().encode('hex')
-
-    def derive_pubkeys(self, for_change, n):
-        return self.get_pubkey_from_mpk(self.mpk, for_change, n)
-
-    def get_private_key_from_stretched_exponent(self, for_change, n, secexp):
-        order = generator_secp256k1.order()
-        secexp = (secexp + self.get_sequence(self.mpk, for_change, n)) % order
-        pk = number_to_string(secexp, generator_secp256k1.order())
-        compressed = False
-        return SecretToASecret(pk, compressed)
-
-    def get_private_key(self, sequence, wallet, password):
-        seed = wallet.get_seed(password)
-        self.check_seed(seed)
-        for_change, n = sequence
-        secexp = self.stretch_key(seed)
-        pk = self.get_private_key_from_stretched_exponent(for_change, n, secexp)
-        return [pk]
-
-    def check_seed(self, seed):
-        secexp = self.stretch_key(seed)
-        master_private_key = ecdsa.SigningKey.from_secret_exponent(secexp, curve=SECP256k1)
-        master_public_key = master_private_key.get_verifying_key().to_string()
-        if master_public_key != self.mpk:
-            print_error('invalid password (mpk)', self.mpk.encode('hex'), master_public_key.encode('hex'))
-            raise InvalidPassword()
-        return True
-
-    def get_master_pubkeys(self):
-        return [self.mpk.encode('hex')]
-
-    def get_type(self):
-        return _('Old Electrum format')
-
-    def get_xpubkeys(self, for_change, n):
-        s = ''.join(map(lambda x: lbrycrd.int_to_hex(x, 2), (for_change, n)))
-        mpk = self.mpk.encode('hex')
-        x_pubkey = 'fe' + mpk + s
-        return [x_pubkey]
-
-    @classmethod
-    def parse_xpubkey(self, x_pubkey):
-        assert is_extended_pubkey(x_pubkey)
-        pk = x_pubkey[2:]
-        mpk = pk[0:128]
-        dd = pk[128:]
-        s = []
-        while dd:
-            n = int(lbrycrd.rev_hex(dd[0:4]), 16)
-            dd = dd[4:]
-            s.append(n)
-        assert len(s) == 2
-        return mpk, s
 
 
 class BIP32_Account(Account):
@@ -304,7 +193,7 @@ class BIP32_Account(Account):
         return out
 
     def get_type(self):
-        return _('Standard 1 of 1')
+        return 'Standard 1 of 1'
 
     def get_xpubkeys(self, for_change, n):
         # unsorted
@@ -347,7 +236,8 @@ class Multisig_Account(BIP32_Account):
         return self.get_pubkey(for_change, n)
 
     def derive_pubkeys(self, for_change, n):
-        return map(lambda x: self.derive_pubkey_from_xpub(x, for_change, n), self.get_master_pubkeys())
+        return map(lambda x: self.derive_pubkey_from_xpub(x, for_change, n),
+                   self.get_master_pubkeys())
 
     def redeem_script(self, for_change, n):
         pubkeys = self.get_pubkeys(for_change, n)
@@ -365,4 +255,4 @@ class Multisig_Account(BIP32_Account):
         return self.xpub_list
 
     def get_type(self):
-        return _('Multisig %d of %d' % (self.m, len(self.xpub_list)))
+        return 'Multisig %d of %d' % (self.m, len(self.xpub_list))
