@@ -1613,7 +1613,7 @@ class Deterministic_Wallet(Abstract_Wallet):
         return True
 
     def get_action(self):
-        if not self.get_master_public_key():
+        if not self.get_master_public_keys():
             return 'create_seed'
         if not self.accounts:
             return 'create_main_account'
