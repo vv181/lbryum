@@ -11,16 +11,15 @@ from collections import defaultdict, deque
 from threading import Lock
 
 from lbryum import __version__ as LBRYUM_VERSION
-from lbryum.constants import COIN
+from lbryum.constants import COIN, BLOCKS_PER_CHUNK, DEFAULT_PORTS, proxy_modes
+from lbryum.constants import SERVER_RETRY_INTERVAL, NODES_RETRY_INTERVAL
 from lbryum.util import DaemonThread, normalize_version
-from lbryum.blockchain import BLOCKS_PER_CHUNK, get_blockchain
+from lbryum.blockchain import get_blockchain
 from lbryum.interface import Connection, Interface
 from lbryum.simple_config import SimpleConfig
 from lbryum.version import PROTOCOL_VERSION
 
 log = logging.getLogger(__name__)
-
-DEFAULT_PORTS = {'t': '50001', 's': '50002', 'h': '8081', 'g': '8082'}
 
 
 def is_online(host, ports):
@@ -33,10 +32,6 @@ def is_online(host, ports):
         log.info("%s:%s is online", host, ports['t'])
         return True
     return False
-
-
-NODES_RETRY_INTERVAL = 60
-SERVER_RETRY_INTERVAL = 10
 
 
 def parse_servers(result):
@@ -88,9 +83,6 @@ def filter_protocol(hostmap, protocol='s'):
 def pick_random_server(hostmap, protocol='t', exclude_set=set()):
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
-
-
-proxy_modes = ['socks4', 'socks5', 'http']
 
 
 def serialize_proxy(p):

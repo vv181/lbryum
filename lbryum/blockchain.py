@@ -6,9 +6,9 @@ import logging
 from lbryum import lbrycrd
 from lbryum.util import hex_to_int, PrintError, int_to_hex, rev_hex
 from lbryum.hashing import hash_encode, Hash, PoWHash
-from lbryum.networks import blockchain_params
 from lbryum.errors import ChainValidationError
 from lbryum.constants import HEADER_SIZE, HEADERS_URL, BLOCKS_PER_CHUNK, NULL_HASH
+from lbryum.constants import blockchain_params
 
 log = logging.getLogger(__name__)
 

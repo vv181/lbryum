@@ -12,7 +12,7 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Changed
-  *
+  * Moved `blockchain_params` into constants.py
   *
 
 ### Fixed
@@ -24,7 +24,7 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Removed
-  *
+  * Removed networks.py
   *
 
 ## [3.1.0] - 2017-06-27
