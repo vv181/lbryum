@@ -112,8 +112,7 @@ class Synchronizer(ThreadJob):
             return
         self.wallet.receive_tx_callback(tx_hash, tx, tx_height)
         self.requested_tx.remove((tx_hash, tx_height))
-        self.print_error("received tx %s height: %d bytes: %d" %
-                         (tx_hash, tx_height, len(tx.raw)))
+        log.info("received tx %s height: %d bytes: %d", tx_hash, tx_height, len(tx.raw))
         # callbacks
         self.network.trigger_callback('new_transaction', tx)
         if not self.requested_tx:
@@ -145,7 +144,7 @@ class Synchronizer(ThreadJob):
             self.request_missing_txs(history)
 
         if self.requested_tx:
-            self.print_error("missing tx", self.requested_tx)
+            log.warning("missing tx: %s", self.requested_tx)
         self.subscribe_to_addresses(set(self.wallet.addresses(True)))
 
     def run(self):

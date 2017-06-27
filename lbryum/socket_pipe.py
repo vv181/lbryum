@@ -85,7 +85,7 @@ class SocketPipe(object):
                 continue
             except socket.error as e:
                 if e[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
-                    log.error("EAGAIN: retrying")
+                    log.debug("EAGAIN: retrying")
                     time.sleep(0.1)
                     continue
                 elif e[0] in ['timed out', 'The write operation timed out']:

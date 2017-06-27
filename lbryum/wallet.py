@@ -221,7 +221,7 @@ class Abstract_Wallet(PrintError):
             self.transactions[tx_hash] = tx
             if self.txi.get(tx_hash) is None and self.txo.get(tx_hash) is None and\
                     (tx_hash not in self.pruned_txo.values()):
-                self.print_error("removing unreferenced tx", tx_hash)
+                log.info("removing unreferenced tx: %s", tx_hash)
                 self.transactions.pop(tx_hash)
 
             # add to claimtrie transactions if its a claimtrie transaction
@@ -706,7 +706,6 @@ class Abstract_Wallet(PrintError):
         self.add_input_info(i)
         return i
 
-    # noinspection PyPep8
     def get_spendable_coins(self, domain=None, exclude_frozen=True, abandon_txid=None):
         coins = []
         found_abandon_txid = False
@@ -1280,7 +1279,7 @@ class Abstract_Wallet(PrintError):
             vr = self.verified_tx.keys() + self.unverified_tx.keys()
         for tx_hash in self.transactions.keys():
             if tx_hash not in vr:
-                self.print_error("removing transaction", tx_hash)
+                log.info("removing transaction %s", tx_hash)
                 self.transactions.pop(tx_hash)
 
     def start_threads(self, network):
@@ -1950,7 +1949,8 @@ class Wallet(object):
         wallet_type = storage.get('wallet_type')
         WalletClass = Wallet.wallet_class(wallet_type, seed_version)
         wallet = WalletClass(storage)
-
+        log.info("loaded \"%s\" type wallet (class: %s), seed version %i", wallet_type,
+                 wallet.__class__.__name__, seed_version)
         return wallet
 
     @staticmethod

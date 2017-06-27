@@ -16,8 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 from lbryum.hashing import Hash, hash_decode, hash_encode
 from lbryum.util import ThreadJob
+
+log = logging.getLogger(__name__)
 
 
 class SPV(ThreadJob):
@@ -39,12 +42,12 @@ class SPV(ThreadJob):
                 request = ('blockchain.transaction.get_merkle',
                            [tx_hash, tx_height])
                 self.network.send([request], self.verify_merkle)
-                self.print_error('requested merkle', tx_hash)
+                log.info('requested merkle: %s', tx_hash)
                 self.merkle_roots[tx_hash] = None
 
     def verify_merkle(self, r):
         if r.get('error'):
-            self.print_error('received an error:', r)
+            log.error('received an error: %s', r)
             return
 
         params = r['params']
@@ -60,12 +63,12 @@ class SPV(ThreadJob):
         if not header or header.get('merkle_root') != merkle_root:
             # FIXME: we should make a fresh connection to a server to
             # recover from this, as this TX will now never verify
-            self.print_error("merkle verification failed for", tx_hash)
+            log.error("merkle verification failed for: %s", tx_hash)
             return
 
         # we passed all the tests
         self.merkle_roots[tx_hash] = merkle_root
-        self.print_error("verified %s" % tx_hash)
+        log.info("verified %s", tx_hash)
         self.wallet.add_verified_tx(tx_hash, (tx_height, header.get('timestamp'), pos))
 
     def hash_merkle_root(self, merkle_s, target_hash, pos):
@@ -77,5 +80,5 @@ class SPV(ThreadJob):
     def undo_verifications(self, height):
         tx_hashes = self.wallet.undo_verifications(height)
         for tx_hash in tx_hashes:
-            self.print_error("redoing", tx_hash)
+            log.info("redoing %s", tx_hash)
             self.merkle_roots.pop(tx_hash, None)
