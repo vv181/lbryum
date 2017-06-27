@@ -1,27 +1,11 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2014 Thomas Voegtlin
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
+import logging
 from threading import Lock
 
-from lbrycrd import Hash, hash_encode
-from transaction import Transaction
-from util import ThreadJob
+from lbryum.hashing import Hash, hash_encode
+from lbryum.transaction import Transaction
+from lbryum.util import ThreadJob
+
+log = logging.getLogger(__name__)
 
 
 class Synchronizer(ThreadJob):
@@ -124,12 +108,11 @@ class Synchronizer(ThreadJob):
         try:
             tx.deserialize()
         except Exception:
-            self.print_msg("cannot deserialize transaction, skipping", tx_hash)
+            log.info("cannot deserialize transaction, skipping: %s", tx_hash)
             return
         self.wallet.receive_tx_callback(tx_hash, tx, tx_height)
         self.requested_tx.remove((tx_hash, tx_height))
-        self.print_error("received tx %s height: %d bytes: %d" %
-                         (tx_hash, tx_height, len(tx.raw)))
+        log.info("received tx %s height: %d bytes: %d", tx_hash, tx_height, len(tx.raw))
         # callbacks
         self.network.trigger_callback('new_transaction', tx)
         if not self.requested_tx:
@@ -161,7 +144,7 @@ class Synchronizer(ThreadJob):
             self.request_missing_txs(history)
 
         if self.requested_tx:
-            self.print_error("missing tx", self.requested_tx)
+            log.warning("missing tx: %s", self.requested_tx)
         self.subscribe_to_addresses(set(self.wallet.addresses(True)))
 
     def run(self):

@@ -1,4 +1,6 @@
-LBRYUM_VERSION = '3.0.1'    # version of the client package
+from lbryum import __version__
+
+LBRYUM_VERSION = __version__
 PROTOCOL_VERSION = '0.10'   # protocol version requested
 NEW_SEED_VERSION = 11       # lbryum versions >= 2.0
 OLD_SEED_VERSION = 4        # lbryum versions < 2.0

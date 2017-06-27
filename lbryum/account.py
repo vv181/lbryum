@@ -1,7 +1,11 @@
-from lbryum import lbrycrd
-from lbryum.lbrycrd import *
+from lbryum.util import rev_hex, int_to_hex
+from lbryum.hashing import hash_160
+from lbryum.base import DecodeBase58Check, EncodeBase58Check
 from lbryum.transaction import Transaction, is_extended_pubkey
-from lbryum.util import InvalidPassword
+from lbryum.lbrycrd import pw_decode, pw_encode, hash_160_to_bc_address, address_from_private_key
+from lbryum.lbrycrd import public_key_to_bc_address, deserialize_xkey, bip32_public_derivation
+from lbryum.lbrycrd import CKD_pub, bip32_private_key
+from lbryum.errors import InvalidPassword
 
 
 class Account(object):
@@ -99,7 +103,6 @@ class ImportedAccount(Account):
         return self.get_pubkeys(for_change, n)
 
     def get_private_key(self, sequence, wallet, password):
-        from wallet import pw_decode
         for_change, i = sequence
         assert for_change == 0
         address = self.get_addresses(0)[i]
@@ -113,7 +116,6 @@ class ImportedAccount(Account):
         return False
 
     def add(self, address, pubkey, privkey, password):
-        from wallet import pw_encode
         self.keypairs[address] = (pubkey, pw_encode(privkey, password))
 
     def remove(self, address):
@@ -154,7 +156,7 @@ class BIP32_Account(Account):
         return [self.xpub]
 
     @classmethod
-    def derive_pubkey_from_xpub(self, xpub, for_change, n):
+    def derive_pubkey_from_xpub(cls, xpub, for_change, n):
         _, _, _, c, cK = deserialize_xkey(xpub)
         for i in [for_change, n]:
             cK, c = CKD_pub(cK, c, i)
@@ -197,20 +199,20 @@ class BIP32_Account(Account):
 
     def get_xpubkeys(self, for_change, n):
         # unsorted
-        s = ''.join(map(lambda x: lbrycrd.int_to_hex(x, 2), (for_change, n)))
+        s = ''.join(map(lambda x: int_to_hex(x, 2), (for_change, n)))
         xpubs = self.get_master_pubkeys()
-        return map(lambda xpub: 'ff' + lbrycrd.DecodeBase58Check(xpub).encode('hex') + s, xpubs)
+        return map(lambda xpub: 'ff' + DecodeBase58Check(xpub).encode('hex') + s, xpubs)
 
     @classmethod
-    def parse_xpubkey(self, pubkey):
+    def parse_xpubkey(cls, pubkey):
         assert is_extended_pubkey(pubkey)
         pk = pubkey.decode('hex')
         pk = pk[1:]
-        xkey = lbrycrd.EncodeBase58Check(pk[0:78])
+        xkey = EncodeBase58Check(pk[0:78])
         dd = pk[78:]
         s = []
         while dd:
-            n = int(lbrycrd.rev_hex(dd[0:2].encode('hex')), 16)
+            n = int(rev_hex(dd[0:2].encode('hex')), 16)
             dd = dd[2:]
             s.append(n)
         assert len(s) == 2
@@ -223,7 +225,7 @@ class BIP32_Account(Account):
 class Multisig_Account(BIP32_Account):
     def __init__(self, v):
         self.m = v.get('m', 2)
-        Account.__init__(self, v)
+        BIP32_Account.__init__(self, v)
         self.xpub_list = v['xpubs']
 
     def dump(self):

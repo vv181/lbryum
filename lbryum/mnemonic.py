@@ -29,7 +29,6 @@ import pbkdf2
 
 from lbryum import version
 from lbryum.lbrycrd import is_new_seed
-from lbryum.util import print_error
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +69,8 @@ CJK_INTERVALS = [
 def is_CJK(c):
     n = ord(c)
     for imin, imax, name in CJK_INTERVALS:
-        if imin <= n <= imax: return True
+        if imin <= n <= imax:
+            return True
     return False
 
 
@@ -84,8 +84,9 @@ def prepare_seed(seed):
     # normalize whitespaces
     seed = u' '.join(seed.split())
     # remove whitespaces between CJK
-    seed = u''.join([seed[i] for i in range(len(seed)) if not (
-    seed[i] in string.whitespace and is_CJK(seed[i - 1]) and is_CJK(seed[i + 1]))])
+    seed = u''.join([seed[i] for i in range(len(seed)) if not (seed[i] in string.whitespace
+                                                               and is_CJK(seed[i - 1])
+                                                               and is_CJK(seed[i + 1]))])
     return seed
 
 
@@ -102,7 +103,8 @@ class Mnemonic(object):
     # Seed derivation no longer follows BIP39
     # Mnemonic phrase uses a hash based checksum, instead of a wordlist-dependent checksum
 
-    def __init__(self, lang="en"):
+    def __init__(self, lang=None):
+        lang = lang or "en"
         filename = filenames.get(lang[0:2], 'english.txt')
         s = pkgutil.get_data('lbryum', os.path.join('wordlist', filename))
         s = unicodedata.normalize('NFKD', s.decode('utf8'))
@@ -114,10 +116,10 @@ class Mnemonic(object):
             assert ' ' not in line
             if line:
                 self.wordlist.append(line)
-        print_error("wordlist has %d words" % len(self.wordlist))
+        log.info("wordlist has %d words", len(self.wordlist))
 
     @classmethod
-    def mnemonic_to_seed(self, mnemonic, passphrase):
+    def mnemonic_to_seed(cls, mnemonic, passphrase):
         PBKDF2_ROUNDS = 2048
         mnemonic = prepare_seed(mnemonic)
         return pbkdf2.PBKDF2(mnemonic, 'lbryum' + passphrase, iterations=PBKDF2_ROUNDS,
@@ -153,7 +155,7 @@ class Mnemonic(object):
         k = len(prefix) * 4
         # we add at least 16 bits
         n_added = max(16, k + num_bits - n)
-        print_error("make_seed", prefix, "adding %d bits" % n_added)
+        log.info("make_seed %s adding %d bits", prefix, n_added)
         my_entropy = ecdsa.util.randrange(pow(2, n_added))
         nonce = 0
         while True:
@@ -163,5 +165,5 @@ class Mnemonic(object):
             assert i == self.mnemonic_decode(seed)
             if is_new_seed(seed, prefix):
                 break
-        print_error('%d words' % len(seed.split()))
+        log.info('%d words', len(seed.split()))
         return seed

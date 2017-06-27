@@ -1,51 +1,24 @@
-# -*- coding: utf-8 -*-
-# !/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 import base64
 import hashlib
 import hmac
 import re
 import struct
-
+import logging
 import aes
 import ecdsa
+from ecdsa import numbertheory, util
+from ecdsa.curves import SECP256k1
+from ecdsa.ecdsa import curve_secp256k1, generator_secp256k1
+from ecdsa.ellipticcurve import Point
+from ecdsa.util import number_to_string, string_to_number
 
-import version
-from util import InvalidPassword, print_error
+from lbryum import msqr, version
+from lbryum.base import base_decode, base_encode, EncodeBase58Check, DecodeBase58Check, __b58chars
+from lbryum.util import print_error, rev_hex, var_int, int_to_hex
+from lbryum.hashing import Hash, sha256, hash_160, hmac_sha_512
+from lbryum.errors import InvalidPassword
 
-################################## transactions
-
-RECOMMENDED_FEE = 50000
-COINBASE_MATURITY = 100
-COIN = 100000000
-
-# supported types of transaction outputs
-TYPE_ADDRESS = 1
-TYPE_PUBKEY = 2
-TYPE_SCRIPT = 4
-TYPE_CLAIM = 8
-TYPE_SUPPORT = 16
-TYPE_UPDATE = 32
-
-# claim related constants
-EXPIRATION_BLOCKS = 262974
-RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS = 1
+log = logging.getLogger(__name__)
 
 # address prefixes are set when the blockchain is initialized by blockchain.get_blockchain
 # the default values are for lbrycrd_main
@@ -135,28 +108,6 @@ def pw_decode(s, password):
         return s
 
 
-def rev_hex(s):
-    return s.decode('hex')[::-1].encode('hex')
-
-
-def int_to_hex(i, length=1):
-    s = hex(i)[2:].rstrip('L')
-    s = "0" * (2 * length - len(s)) + s
-    return rev_hex(s)
-
-
-def var_int(i):
-    # https://en.bitcoin.it/wiki/Protocol_specification#Variable_length_integer
-    if i < 0xfd:
-        return int_to_hex(i)
-    elif i <= 0xffff:
-        return "fd" + int_to_hex(i, 2)
-    elif i <= 0xffffffff:
-        return "fe" + int_to_hex(i, 4)
-    else:
-        return "ff" + int_to_hex(i, 8)
-
-
 def op_push(i):
     if i < 0x4c:
         return int_to_hex(i)
@@ -166,39 +117,6 @@ def op_push(i):
         return '4d' + int_to_hex(i, 2)
     else:
         return '4e' + int_to_hex(i, 4)
-
-
-def sha256(x):
-    return hashlib.sha256(x).digest()
-
-
-def sha512(x):
-    return hashlib.sha512(x).digest()
-
-
-def ripemd160(x):
-    h = hashlib.new('ripemd160')
-    h.update(x)
-    return h.digest()
-
-
-def Hash(x):
-    if type(x) is unicode: x = x.encode('utf-8')
-    return sha256(sha256(x))
-
-
-def PoWHash(x):
-    if type(x) is unicode: x = x.encode('utf-8')
-    r = sha512(Hash(x))
-    r1 = ripemd160(r[:len(r) / 2])
-    r2 = ripemd160(r[len(r) / 2:])
-    r3 = Hash(r1 + r2)
-    return r3
-
-
-hash_encode = lambda x: x[::-1].encode('hex')
-hash_decode = lambda x: x.decode('hex')[::-1]
-hmac_sha_512 = lambda x, y: hmac.new(x, y, hashlib.sha512).digest()
 
 
 def is_new_seed(x, prefix=version.SEED_PREFIX):
@@ -229,16 +147,7 @@ def i2o_ECPublicKey(pubkey, compressed=False):
 
 
 # end pywallet openssl private key implementation
-
-
-
-############ functions from pywallet #####################
-
-
-def hash_160(public_key):
-    md = hashlib.new('ripemd160')
-    md.update(sha256(public_key))
-    return md.digest()
+# functions from pywallet
 
 
 def public_key_to_bc_address(public_key):
@@ -266,91 +175,14 @@ def bc_address_to_hash_160(addr):
         return SCRIPT_ADDRESS[0], bytes[1:21]
 
 
-__b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-assert len(__b58chars) == 58
-
-__b43chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$*+-./:'
-assert len(__b43chars) == 43
-
-
-def base_encode(v, base):
-    """ encode v, which is a string of bytes, to base58."""
-    if base == 58:
-        chars = __b58chars
-    elif base == 43:
-        chars = __b43chars
-    long_value = 0L
-    for (i, c) in enumerate(v[::-1]):
-        long_value += (256 ** i) * ord(c)
-    result = ''
-    while long_value >= base:
-        div, mod = divmod(long_value, base)
-        result = chars[mod] + result
-        long_value = div
-    result = chars[long_value] + result
-    # Bitcoin does a little leading-zero-compression:
-    # leading 0-bytes in the input become leading-1s
-    nPad = 0
-    for c in v:
-        if c == '\0':
-            nPad += 1
-        else:
-            break
-    return (chars[0] * nPad) + result
-
-
-# noinspection PyPep8
-def base_decode(v, length, base):
-    """ decode v into a string of len bytes."""
-    if base == 58:
-        chars = __b58chars
-    elif base == 43:
-        chars = __b43chars
-    long_value = 0L
-    for (i, c) in enumerate(v[::-1]):
-        long_value += chars.find(c) * (base ** i)
-    result = ''
-    while long_value >= 256:
-        div, mod = divmod(long_value, 256)
-        result = chr(mod) + result
-        long_value = div
-    result = chr(long_value) + result
-    nPad = 0
-    for c in v:
-        if c == chars[0]:
-            nPad += 1
-        else:
-            break
-    result = chr(0) * nPad + result
-    if length is not None and len(result) != length:
-        return None
-    return result
-
-
-def EncodeBase58Check(vchIn):
-    hash = Hash(vchIn)
-    return base_encode(vchIn + hash[0:4], base=58)
-
-
-def DecodeBase58Check(psz):
-    vchRet = base_decode(psz, None, base=58)
-    key = vchRet[0:-4]
-    csum = vchRet[-4:]
-    hash = Hash(key)
-    cs32 = hash[0:4]
-    if cs32 != csum:
-        return None
-    else:
-        return key
-
-
 def PrivKeyToSecret(privkey):
     return privkey[9:9 + 32]
 
 
 def SecretToASecret(secret, compressed=False, addrtype=0):
     vchIn = chr((addrtype + 128) & 255) + secret
-    if compressed: vchIn += '\01'
+    if compressed:
+        vchIn += '\01'
     return EncodeBase58Check(vchIn)
 
 
@@ -424,8 +256,8 @@ def is_private_key(key):
     except:
         return False
 
+# end pywallet functions
 
-########### end pywallet functions #######################
 
 def is_minikey(text):
     # Minikeys are typically 22 or 30 characters, but this routine
@@ -440,12 +272,6 @@ def is_minikey(text):
 
 def minikey_to_private_key(text):
     return sha256(text)
-
-
-from ecdsa.ecdsa import curve_secp256k1, generator_secp256k1
-from ecdsa.curves import SECP256k1
-from ecdsa.ellipticcurve import Point
-from ecdsa.util import string_to_number, number_to_string
 
 
 def msg_magic(message):
@@ -510,10 +336,8 @@ def ser_to_point(Aser):
 
 class MyVerifyingKey(ecdsa.VerifyingKey):
     @classmethod
-    def from_signature(klass, sig, recid, h, curve):
+    def from_signature(cls, sig, recid, h, curve):
         """ See http://www.secg.org/download/aid-780/sec1-v2.pdf, chapter 4.1.6 """
-        from ecdsa import util, numbertheory
-        import msqr
         curveFp = curve.curve
         G = curve.generator
         order = G.order()
@@ -533,7 +357,7 @@ class MyVerifyingKey(ecdsa.VerifyingKey):
         # 1.6 compute Q = r^-1 (sR - eG)
         inv_r = numbertheory.inverse_mod(r, order)
         Q = inv_r * (s * R + minus_e * G)
-        return klass.from_public_point(Q, curve)
+        return cls.from_public_point(Q, curve)
 
 
 class MySigningKey(ecdsa.SigningKey):
@@ -575,12 +399,12 @@ class EC_KEY(object):
                 self.verify_message(address, sig, message)
                 return sig
             except Exception:
+                log.exception("error: cannot sign message")
                 continue
-        else:
-            raise Exception("error: cannot sign message")
+        raise Exception("error: cannot sign message")
 
     @classmethod
-    def verify_message(self, address, sig, message):
+    def verify_message(cls, address, sig, message):
         if len(sig) != 65:
             raise Exception("Wrong encoding")
         nV = ord(sig[0])
@@ -603,10 +427,11 @@ class EC_KEY(object):
         if address != addr:
             raise Exception("Bad signature")
 
-    # ECIES encryption/decryption methods; AES-128-CBC with PKCS7 is used as the cipher; hmac-sha256 is used as the mac
+    # ECIES encryption/decryption methods; AES-128-CBC with PKCS7 is used as the cipher;
+    # hmac-sha256 is used as the mac
 
     @classmethod
-    def encrypt_message(self, message, pubkey):
+    def encrypt_message(cls, message, pubkey):
 
         pk = ser_to_point(pubkey)
         if not ecdsa.ecdsa.point_is_valid(generator_secp256k1, pk.x(), pk.y()):
@@ -658,9 +483,12 @@ class EC_KEY(object):
         return aes_decrypt_with_iv(key_e, iv, ciphertext)
 
 
-###################################### BIP32 ##############################
+# BIP32
 
-random_seed = lambda n: "%032x" % ecdsa.util.randrange(pow(2, n))
+def random_seed(n):
+    return "%032x" % ecdsa.util.randrange(pow(2, n))
+
+
 BIP32_PRIME = 0x80000000
 
 
@@ -704,7 +532,8 @@ def _CKD_priv(k, c, s, is_prime):
 # This function allows us to find the nth public key, as long as n is
 #  non-negative. If n is negative, we need the master private key to find it.
 def CKD_pub(cK, c, n):
-    if n & BIP32_PRIME: raise
+    if n & BIP32_PRIME:
+        raise Exception("CKD pub error")
     return _CKD_pub(cK, c, rev_hex(int_to_hex(n, 4)).decode('hex'))
 
 
@@ -814,7 +643,8 @@ def bip32_private_derivation(xprv, branch, sequence, testnet=False):
     depth, fingerprint, child_number, c, k = deserialize_xkey(xprv)
     sequence = sequence[len(branch):]
     for n in sequence.split('/'):
-        if n == '': continue
+        if n == '':
+            continue
         i = int(n[:-1]) + BIP32_PRIME if n[-1] == "'" else int(n)
         parent_k = k
         k, c = CKD_priv(k, c, i)
@@ -835,7 +665,8 @@ def bip32_public_derivation(xpub, branch, sequence, testnet=False):
     assert sequence.startswith(branch)
     sequence = sequence[len(branch):]
     for n in sequence.split('/'):
-        if n == '': continue
+        if n == '':
+            continue
         i = int(n)
         parent_cK = cK
         cK, c = CKD_pub(cK, c, i)

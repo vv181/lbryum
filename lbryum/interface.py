@@ -1,33 +1,13 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
 import logging
 import os
-import re
 import socket
-import ssl
 import sys
 import threading
 import time
-import traceback
-
 import requests.certs
+from lbryum.util import PrintError
+from lbryum.errors import Timeout
+from lbryum.socket_pipe import SocketPipe
 
 if getattr(sys, 'frozen', False) and os.name == "nt":
     # When frozen for windows distribution, get the include cert
@@ -35,9 +15,12 @@ if getattr(sys, 'frozen', False) and os.name == "nt":
 else:
     ca_path = requests.certs.where()
 
-import util
-
 log = logging.getLogger(__name__)
+
+
+def make_dict(args):
+    m, p, i = args
+    return {'method': m, 'params': p, 'id': i}
 
 
 def Connection(server, queue, config_path):
@@ -49,14 +32,14 @@ def Connection(server, queue, config_path):
     connection failed.
     """
     host, port, protocol = server.split(':')
-    if not protocol in 'st':
+    if protocol not in 'st':
         raise Exception('Unknown protocol: %s' % protocol)
     c = TcpConnection(server, queue, config_path)
     c.start()
     return c
 
 
-class TcpConnection(threading.Thread, util.PrintError):
+class TcpConnection(threading.Thread, PrintError):
     def __init__(self, server, queue, config_path):
         threading.Thread.__init__(self)
         self.daemon = True
@@ -74,7 +57,7 @@ class TcpConnection(threading.Thread, util.PrintError):
         try:
             l = socket.getaddrinfo(self.host, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM)
         except socket.gaierror:
-            self.print_error("cannot resolve hostname")
+            log.error("cannot resolve hostname")
             return
         for res in l:
             try:
@@ -86,8 +69,6 @@ class TcpConnection(threading.Thread, util.PrintError):
             except BaseException as e:
                 log.exception('Failed to connect to %s', res)
                 continue
-        else:
-            self.print_error("failed to connect", str(e))
 
     def get_socket(self):
         s = self.get_simple_socket()
@@ -99,11 +80,11 @@ class TcpConnection(threading.Thread, util.PrintError):
     def run(self):
         socket = self.get_socket()
         if socket:
-            self.print_error("connected")
+            log.info("connected to %s", self.server)
         self.queue.put((self.server, socket))
 
 
-class Interface(util.PrintError):
+class Interface(PrintError):
     """The Interface class handles a socket connected to a single remote
     lbryum server.  It's exposed API is:
 
@@ -117,7 +98,7 @@ class Interface(util.PrintError):
         self.host, _, _ = server.split(':')
         self.socket = socket
 
-        self.pipe = util.SocketPipe(socket)
+        self.pipe = SocketPipe(socket)
         self.pipe.set_timeout(0.0)  # Don't wait for data
         # Dump network messages.  Set at runtime from the console.
         self.debug = False
@@ -140,7 +121,7 @@ class Interface(util.PrintError):
             if not self.closed_remotely:
                 self.socket.shutdown(socket.SHUT_RDWR)
         except socket.error as err:
-            self.print_error("Error closing interface: %s (%s)" % (str(type(err)), err))
+            log.error("Error closing interface: %s (%s)", str(type(err)), err)
         finally:
             self.socket.close()
 
@@ -153,16 +134,14 @@ class Interface(util.PrintError):
 
     def send_requests(self):
         '''Sends all queued requests.  Returns False on failure.'''
-        make_dict = lambda (m, p, i): {'method': m, 'params': p, 'id': i}
         wire_requests = map(make_dict, self.unsent_requests)
         try:
             self.pipe.send_all(wire_requests)
-        except socket.error, e:
-            self.print_error("socket error:", e)
+        except socket.error:
+            log.exception("socket error")
             return False
         for request in self.unsent_requests:
-            if self.debug:
-                self.print_error("-->", request)
+            log.debug("--> %s", request)
             self.unanswered_requests[request[2]] = request
         self.unsent_requests = []
         return True
@@ -179,9 +158,9 @@ class Interface(util.PrintError):
 
     def has_timed_out(self):
         '''Returns True if the interface has timed out.'''
-        if (self.unanswered_requests and time.time() - self.request_time > 10
-            and self.pipe.idle_time() > 10):
-            self.print_error("timeout", len(self.unanswered_requests))
+        request_time = time.time() - self.request_time
+        if self.unanswered_requests and request_time > 10 and self.pipe.idle_time() > 10:
+            log.info("timeout %i", len(self.unanswered_requests))
             return True
 
         return False
@@ -199,15 +178,14 @@ class Interface(util.PrintError):
         while True:
             try:
                 response = self.pipe.get()
-            except util.Timeout:
+            except Timeout:
                 break
             if response is None:
                 responses.append((None, None))
                 self.closed_remotely = True
-                self.print_error("connection closed remotely")
+                log.warning("connection closed remotely")
                 break
-            if self.debug:
-                self.print_error("<--", response)
+            log.debug("<-- %s", response)
             wire_id = response.get('id', None)
             if wire_id is None:  # Notification
                 responses.append((None, response))
@@ -216,7 +194,7 @@ class Interface(util.PrintError):
                 if request:
                     responses.append((request, response))
                 else:
-                    self.print_error("unknown wire ID", wire_id)
+                    log.error("unknown wire ID: %s", wire_id)
                     responses.append((None, None))  # Signal
                     break
 

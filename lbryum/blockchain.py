@@ -1,41 +1,19 @@
-#!/usr/bin/env python
-#
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2012 thomasv@ecdsa.org
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
 import os
+import urllib
+import socket
+import logging
 
 from lbryum import lbrycrd
+from lbryum.util import hex_to_int, PrintError, int_to_hex, rev_hex
+from lbryum.hashing import hash_encode, Hash, PoWHash
 from lbryum.networks import blockchain_params
+from lbryum.errors import ChainValidationError
+from lbryum.constants import HEADER_SIZE, HEADERS_URL, BLOCKS_PER_CHUNK, NULL_HASH
 
-import util
-
-NULL_HASH = '0000000000000000000000000000000000000000000000000000000000000000'
-HEADER_SIZE = 112
-BLOCKS_PER_CHUNK = 96
-
-HEADERS_URL = "https://s3.amazonaws.com/lbry-blockchain-headers/blockchain_headers_latest"
+log = logging.getLogger(__name__)
 
 
-class ChainValidationError(Exception):
-    pass
-
-
-class LbryCrd(util.PrintError):
+class LbryCrd(PrintError):
     """Manages blockchain headers and their verification"""
 
     BLOCKCHAIN_NAME = "lbrycrd_main"
@@ -70,7 +48,7 @@ class LbryCrd(util.PrintError):
     def init(self):
         self.init_headers_file()
         self.set_local_height()
-        self.print_error("%d blocks" % self.local_height)
+        log.debug("%d blocks" % self.local_height)
 
     def verify_header(self, header, prev_header, bits, target):
         prev_hash = self.hash_header(prev_header)
@@ -115,23 +93,22 @@ class LbryCrd(util.PrintError):
             return NULL_HASH
 
     def serialize_header(self, res):
-        s = lbrycrd.int_to_hex(res.get('version'), 4) \
-            + lbrycrd.rev_hex(self.get_block_hash(res)) \
-            + lbrycrd.rev_hex(res.get('merkle_root')) \
-            + lbrycrd.rev_hex(res.get('claim_trie_root')) \
-            + lbrycrd.int_to_hex(int(res.get('timestamp')), 4) \
-            + lbrycrd.int_to_hex(int(res.get('bits')), 4) \
-            + lbrycrd.int_to_hex(int(res.get('nonce')), 4)
+        s = int_to_hex(res.get('version'), 4) \
+            + rev_hex(self.get_block_hash(res)) \
+            + rev_hex(res.get('merkle_root')) \
+            + rev_hex(res.get('claim_trie_root')) \
+            + int_to_hex(int(res.get('timestamp')), 4) \
+            + int_to_hex(int(res.get('bits')), 4) \
+            + int_to_hex(int(res.get('nonce')), 4)
 
         return s
 
     def deserialize_header(self, s):
-        hex_to_int = lambda s: int('0x' + s[::-1].encode('hex'), 16)
         h = {}
         h['version'] = hex_to_int(s[0:4])
-        h['prev_block_hash'] = lbrycrd.hash_encode(s[4:36])
-        h['merkle_root'] = lbrycrd.hash_encode(s[36:68])
-        h['claim_trie_root'] = lbrycrd.hash_encode(s[68:100])
+        h['prev_block_hash'] = hash_encode(s[4:36])
+        h['merkle_root'] = hash_encode(s[36:68])
+        h['claim_trie_root'] = hash_encode(s[68:100])
         h['timestamp'] = hex_to_int(s[100:104])
         h['bits'] = hex_to_int(s[104:108])
         h['nonce'] = hex_to_int(s[108:112])
@@ -140,12 +117,12 @@ class LbryCrd(util.PrintError):
     def hash_header(self, header):
         if header is None:
             return '0' * 64
-        return lbrycrd.hash_encode(lbrycrd.Hash(self.serialize_header(header).decode('hex')))
+        return hash_encode(Hash(self.serialize_header(header).decode('hex')))
 
     def pow_hash_header(self, header):
         if header is None:
             return '0' * 64
-        return lbrycrd.hash_encode(lbrycrd.PoWHash(self.serialize_header(header).decode('hex')))
+        return hash_encode(PoWHash(self.serialize_header(header).decode('hex')))
 
     def path(self):
         return os.path.join(self.config.path, 'blockchain_headers')
@@ -155,9 +132,8 @@ class LbryCrd(util.PrintError):
         if os.path.exists(filename):
             return
         try:
-            import urllib, socket
             socket.setdefaulttimeout(30)
-            self.print_error("downloading ", self.headers_url)
+            log.info("downloading headers from %s", self.headers_url)
             self.retrieving_headers = True
             try:
                 urllib.urlretrieve(self.headers_url, filename)
@@ -165,9 +141,9 @@ class LbryCrd(util.PrintError):
                 raise
             finally:
                 self.retrieving_headers = False
-            self.print_error("done.")
+            log.info("done.")
         except Exception:
-            self.print_error("download failed. creating file", filename)
+            log.warning("download failed. creating empty headers file: %s", filename)
             open(filename, 'wb+').close()
 
     def save_chunk(self, index, chunk):
@@ -258,12 +234,12 @@ class LbryCrd(util.PrintError):
         chain.reverse()
         try:
             self.verify_chain(chain)
-            self.print_error("connected at height:", height)
+            log.debug("connected at height: %i", height)
             for header in chain:
                 self.save_header(header)
             return True
         except BaseException as e:
-            self.print_error(str(e))
+            log.exception("error saving chain")
             return False
 
     def need_previous(self, header):
@@ -276,18 +252,18 @@ class LbryCrd(util.PrintError):
         # Does it connect to my chain?
         prev_hash = self.hash_header(previous_header)
         if prev_hash != header.get('prev_block_hash'):
-            self.print_error("reorg")
+            log.info("reorg")
             return True
 
     def connect_chunk(self, idx, hexdata):
         try:
             data = hexdata.decode('hex')
             self.verify_chunk(idx, data)
-            self.print_error("validated chunk %d" % idx)
+            log.info("validated chunk %i", idx)
             self.save_chunk(idx, data)
             return idx + 1
         except BaseException as e:
-            self.print_error('verify_chunk failed', str(e))
+            log.error('verify_chunk failed: %s', str(e))
             return idx - 1
 
     def check_bits(self, bits):

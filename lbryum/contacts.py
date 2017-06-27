@@ -1,7 +1,7 @@
 import re
 
-import lbrycrd
-from util import StoreDict
+from lbryum.lbrycrd import is_address
+from lbryum.store import StoreDict
 
 
 class Contacts(StoreDict):
@@ -9,7 +9,7 @@ class Contacts(StoreDict):
         StoreDict.__init__(self, config, 'contacts')
 
     def resolve(self, k):
-        if lbrycrd.is_address(k):
+        if is_address(k):
             return {
                 'address': k,
                 'type': 'address'
