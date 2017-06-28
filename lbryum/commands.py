@@ -665,6 +665,15 @@ class Commands(object):
         return out
 
     @command('w')
+    def getmaxspendable(self):
+        hist = self.wallet.get_spendable_coins()
+        max_amount, fee = self.wallet.get_max_amount(self.config, hist, fee=None)
+        return {
+            "amount": float(Decimal(max_amount) / Decimal(COIN)),
+            "fee": float(Decimal(fee) / Decimal(COIN))
+        }
+
+    @command('w')
     def gettransaction(self, txid):
         """Retrieve a transaction in deserialized json format"""
         tx = self.wallet.transactions.get(txid) if self.wallet else None

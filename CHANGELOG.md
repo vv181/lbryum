@@ -8,7 +8,7 @@ labeled as 2.7.1. Subsequent releases will follow
 
 ## [Unreleased]
 ### Added
-  *
+  * Add `getmaxspendable` command
   *
 
 ### Changed
