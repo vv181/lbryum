@@ -246,7 +246,12 @@ def main():
                 print "Daemon not running"
                 sys.exit(1)
             elif subcommand == 'start':
-                p = os.fork()
+                if hasattr(os, "fork"):
+                    p = os.fork()
+                else:
+                    log.warning("Cannot start lbryum daemon as a background process")
+                    log.warning("To use lbryum commands, run them from a different window")
+                    p = 0
                 if p == 0:
                     network = Network(config)
                     network.start()
