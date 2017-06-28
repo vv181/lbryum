@@ -1,5 +1,6 @@
 import ast
 import copy
+import stat
 import json
 import os
 import random
@@ -107,7 +108,7 @@ class WalletStorage(PrintError):
 
     def write(self):
         if threading.currentThread().isDaemon():
-            self.print_error('warning: daemon thread cannot write wallet')
+            log.warning('daemon thread cannot write wallet')
             return
         if not self.modified:
             return
@@ -118,19 +119,17 @@ class WalletStorage(PrintError):
             f.flush()
             os.fsync(f.fileno())
 
-        if 'ANDROID_DATA' not in os.environ:
-            import stat
-            mode = os.stat(self.path).st_mode if os.path.exists(
-                self.path) else stat.S_IREAD | stat.S_IWRITE
+        if os.path.exists(self.path):
+            mode = os.stat(self.path).st_mode
+        else:
+            mode = stat.S_IREAD | stat.S_IWRITE
         # perform atomic write on POSIX systems
         try:
             os.rename(temp_path, self.path)
         except:
             os.remove(self.path)
             os.rename(temp_path, self.path)
-        if 'ANDROID_DATA' not in os.environ:
-            import stat
-            os.chmod(self.path, mode)
+        os.chmod(self.path, mode)
         self.modified = False
 
 
