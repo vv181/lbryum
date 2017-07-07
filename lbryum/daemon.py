@@ -80,7 +80,7 @@ class Daemon(DaemonThread):
                 'server_height': self.network.get_server_height(),
                 'nodes': self.network.get_interfaces(),
                 'connected': self.network.is_connected(),
-                'auto_connect': p[4],
+                'auto_connect': p[3],
                 'wallets': dict([(k, w.is_up_to_date()) for k, w in self.wallets.items()]),
             }
         elif sub == 'stop':

@@ -301,7 +301,7 @@ class Network(DaemonThread):
 
     def get_parameters(self):
         host, port, protocol = deserialize_server(self.default_server)
-        return host, port, protocol, self.proxy, self.auto_connect
+        return host, port, protocol, self.auto_connect
 
     def get_interfaces(self):
         """The interfaces that are in connected state"""
