@@ -16,8 +16,8 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Fixed
-  * Fix `lbryum daemon start` on windows
-  * Fix `version` command
+  *
+  *
 
 ### Deprecated
   *
@@ -26,6 +26,12 @@ labeled as 2.7.1. Subsequent releases will follow
 ### Removed
   *
   *
+
+## [3.1.2] - 2017-07-06
+### Fixed
+ * Fix `lbryum daemon start` on windows
+ * Fix `version` command
+
 
 ## [3.1.1] - 2017-06-28
 ### Changed
