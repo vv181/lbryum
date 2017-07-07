@@ -16,7 +16,7 @@ labeled as 2.7.1. Subsequent releases will follow
   *
 
 ### Fixed
-  * Fix `lbryum daemon status`
+  *
   *
 
 ### Deprecated
@@ -26,6 +26,11 @@ labeled as 2.7.1. Subsequent releases will follow
 ### Removed
   *
   *
+
+## [3.1.3] - 2017-07-06
+### Fixed
+ * Fix `lbryum daemon status`
+
 
 ## [3.1.2] - 2017-07-06
 ### Fixed
