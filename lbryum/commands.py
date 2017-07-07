@@ -18,6 +18,7 @@ from lbryschema.error import DecodeError
 from lbryschema.signer import SECP256k1, get_signer
 from lbryschema.uri import URIParseError, parse_lbry_uri
 
+from lbryum import __version__
 from lbryum.contacts import Contacts
 from lbryum.constants import COIN, TYPE_ADDRESS, TYPE_CLAIM, TYPE_SUPPORT, TYPE_UPDATE
 from lbryum.constants import RECOMMENDED_CLAIMTRIE_HASH_CONFIRMS
@@ -400,8 +401,7 @@ class Commands(object):
     @command('')
     def version(self):
         """Return the version of lbryum."""
-        import lbryum  # Needs to stay here to prevent ciruclar imports
-        return lbryum.LBRYUM_VERSION
+        return __version__
 
     @command('w')
     def getmpk(self):
