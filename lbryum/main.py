@@ -218,7 +218,7 @@ def main():
     else:
         logging.getLogger("lbryum").setLevel(logging.ERROR)
 
-    # config is an object passed to the various constructors (wallet, interface, gui)
+    # config is an object passed to the various constructors (wallet, interface)
     config_options = args.__dict__
     for k, v in config_options.items():
         if v is None or (k in config_variables.get(args.cmd, {}).keys()):

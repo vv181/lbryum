@@ -177,7 +177,6 @@ class Network(DaemonThread):
         # callbacks passed with subscriptions
         self.subscriptions = defaultdict(list)
         self.sub_cache = {}
-        # callbacks set by the GUI
         self.callbacks = defaultdict(list)
 
         dir_path = os.path.join(self.config.path, 'certs')

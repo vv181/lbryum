@@ -11,7 +11,6 @@ proxy = None
 gap_limit = 5
 # booleans use python syntax
 use_change = True
-gui = qt
 num_zeros = 2
 # default transaction fee is in Satoshis
 fee = 10000

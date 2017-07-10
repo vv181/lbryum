@@ -153,9 +153,6 @@ class SimpleConfig(object):
         f = open(path, "w")
         f.write(s)
         f.close()
-        if self.get('gui') != 'android':
-            import stat
-            os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
 
     def get_wallet_path(self):
         """Set the path of the wallet."""

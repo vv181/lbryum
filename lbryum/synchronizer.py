@@ -44,7 +44,7 @@ class Synchronizer(ThreadJob):
         self.network.unsubscribe(self.addr_subscription_response)
 
     def add(self, address):
-        '''This can be called from the proxy or GUI threads.'''
+        '''This can be called from the proxy.'''
         with self.lock:
             self.new_addresses.add(address)
 

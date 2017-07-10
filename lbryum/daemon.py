@@ -46,7 +46,6 @@ class Daemon(DaemonThread):
         DaemonThread.__init__(self)
         self.config = config
         self.network = network
-        self.gui = None
         self.wallets = {}
         self.wallet = self.load_wallet(config.get_wallet_path())
         self.cmd_runner = Commands(self.config, self.wallet, self.network)
@@ -86,19 +85,6 @@ class Daemon(DaemonThread):
         elif sub == 'stop':
             self.stop()
             response = "Daemon stopped"
-        return response
-
-    def run_gui(self, config_options):
-        config = SimpleConfig(config_options)
-        if self.gui:
-            if hasattr(self.gui, 'new_window'):
-                path = config.get_wallet_path()
-                self.gui.new_window(path, config.get('url'))
-                response = "ok"
-            else:
-                response = "error: current GUI does not support multiple windows"
-        else:
-            response = "Error: Electrum is running in daemon mode. Please stop the daemon first."
         return response
 
     def load_wallet(self, path, get_wizard=None):
