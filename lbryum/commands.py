@@ -1166,17 +1166,21 @@ class Commands(object):
     @command('n')
     def getclaimbyoutpoint(self, txid, nout, raw=False):
         """
-        Return claim at outpoint (txid:nout) , return None
-        if it no claim exists at outpoint
+        Return claim at outpoint (txid:nout)
+        If no claim exists at outpoint, or outpoint not found, return
+        dictionary where 'success' is False and 'error' is 'claim not found'
         """
 
         out = self.network.synchronous_get(('blockchain.claimtrie.getclaimsintx', [txid]))
         claims = format_amount_value(format_lbrycrd_keys(out, raw))
+        claim_not_found_out = {'success':False, 'error':'claim not found',
+                               'outpoint':'%s:%i'%(txid, nout)}
         if claims is None:
-            return None
+            return claim_not_found_out
         for claim in claims:
             if claim['nout'] == nout:
                 return self.parse_and_validate_claim_result(claim, raw=raw)
+        return claim_not_found_out
 
     @command('n')
     def getclaimsforname(self, name, raw=False):
