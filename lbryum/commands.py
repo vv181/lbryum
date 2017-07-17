@@ -1165,8 +1165,8 @@ class Commands(object):
 
         out = self.network.synchronous_get(('blockchain.claimtrie.getclaimsintx', [txid]))
         claims = format_amount_value(format_lbrycrd_keys(out, raw))
-        claim_not_found_out = {'success':False, 'error':'claim not found',
-                               'outpoint':'%s:%i'%(txid, nout)}
+        claim_not_found_out = {'success': False, 'error': 'claim not found',
+                               'outpoint': '%s:%i' % (txid, nout)}
         if claims is None:
             return claim_not_found_out
         for claim in claims:
