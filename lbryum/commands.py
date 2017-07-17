@@ -1,3 +1,6 @@
+import keyring
+import os
+import pwd
 import argparse
 import ast
 import base64
@@ -35,10 +38,15 @@ from lbryum.util import format_satoshis, rev_hex
 from lbryum.mnemonic import Mnemonic
 
 
+def get_username():
+    return pwd.getpwuid(os.getuid())[0]
+
+
 log = logging.getLogger(__name__)
 
 ADDRESS_LENGTH = 25
 MAX_PAGE_SIZE = 500
+_KEY_RING = keyring.get_keyring()
 
 
 # Format output from lbrycrd to have consistently
@@ -156,6 +164,61 @@ class Commands(object):
         self._password = password
         self.new_password = new_password
         self.contacts = Contacts(self.config)
+        if self.wallet.use_encryption and not password:
+            # see if we can find the wallet password in the key ring, if not the user must
+            # provide it
+            password = _KEY_RING.get_password("lbryum", get_username())
+            if password:
+                self.unlock_wallet(password)
+                log.info("unlocked the wallet using password from %s" % _KEY_RING.name)
+            else:
+                log.info("wallet password was not specified and is not in the keyring, "
+                         "it must be provided to unlock the wallet")
+
+    @property
+    def locked(self):
+        return self._password is None and self.wallet.use_encryption
+
+    def unlock_wallet(self, password):
+        if self._password:
+            return
+        if not self.wallet.use_encryption:
+            return
+        self.wallet.check_password(password)
+        self._password = password
+        self.new_password = None
+        return
+
+    def lock_wallet(self):
+        if self.locked:
+            return
+        self._password = None
+        self.new_password = None
+
+    def decrypt_wallet(self):
+        if not self.wallet.use_encryption:
+            return
+        with self.wallet.storage.lock:
+            self.wallet.check_password(self._password)
+            self.new_password = None
+            self.wallet.update_password(self._password, self.new_password)
+            self.wallet.storage.write()
+            self._password = None
+        return
+
+    def update_password(self, new_password, update_keyring=True):
+        if not new_password:
+            return
+        if self.wallet.use_encryption:
+            self.wallet.check_password(self._password)
+        with self.wallet.storage.lock:
+            self.new_password = new_password
+            self.wallet.update_password(self._password, self.new_password)
+            if update_keyring:
+                _KEY_RING.set_password("lbryum", get_username(), new_password)
+            self.wallet.storage.write()
+            self._password = self.new_password
+        return
 
     @command('')
     def commands(self):
