@@ -13,9 +13,6 @@ from lbryum.wallet import Wallet, WalletStorage
 
 log = logging.getLogger(__name__)
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-is_bundle = getattr(sys, 'frozen', False)
-
 
 # get password routine
 def prompt_password(prompt, confirm=True):
@@ -101,20 +98,6 @@ def init_cmdline(config_options):
     config = SimpleConfig(config_options)
     cmdname = config.get('cmd')
     cmd = Commands.known_commands[cmdname]
-
-    if cmdname == 'signtransaction' and config.get('privkey'):
-        cmd.requires_wallet = False
-        cmd.requires_password = False
-
-    if cmdname in ['payto', 'paytomany'] and config.get('unsigned'):
-        cmd.requires_password = False
-
-    if cmdname in ['payto', 'paytomany'] and config.get('broadcast'):
-        cmd.requires_network = True
-
-    if cmdname in ['createrawtx'] and config.get('unsigned'):
-        cmd.requires_password = False
-        cmd.requires_wallet = False
 
     # instanciate wallet for command-line
     storage = WalletStorage(config.get_wallet_path())
